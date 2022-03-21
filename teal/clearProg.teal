@@ -1,0 +1,80 @@
+#pragma version 6
+txn Sender
+global CurrentApplicationID
+byte "camt"
+app_local_get_ex
+bz delete_local_states
+b unfreeze_assets
+
+unfreeze_assets:
+	txn Sender
+	dup
+	global CurrentApplicationID
+	byte "xids"
+	app_local_get_ex
+	assert
+	dup
+	cover 2
+	load 4 // pointer
+	extract_uint64
+	dup2
+	asset_holding_get AssetFrozen
+	pop
+	dig 1
+	asset_params_get AssetFreeze
+	pop
+	global CurrentApplicationAddress
+	==
+	&&
+	int 8
+	load 4 // pointer
+	+
+	store 4
+	dig 3
+	len
+	load 4
+	>
+	&&
+	bnz unfreeze_assets
+	//top of stack should be account to unfreeze
+	itxn_begin
+	int 0
+	itxn_field Fee
+	int afrz
+	itxn_field TypeEnum
+	//asset to unfreeze
+	itxn_field FreezeAsset
+	//account to unfreeze
+	itxn_field FreezeAssetAccount
+	int 0 //set frozen status to false
+	itxn_field FreezeAssetFrozen
+	itxn_submit
+	// loop to unfreeze next asset
+	// check if at end of byte (collateral_assets[]uint64)
+	len
+	load 4
+	>
+	bnz unfreeze_assets
+	int 0
+	store 4 // reset pointer
+	b delete_local_states
+
+delete_local_states:
+	txn Sender
+	dup
+	dup2
+	dup2
+	byte "xids" // participation assets
+	app_local_del
+	byte "aamt" // allowed borrow amount
+	app_local_del
+	byte "camt" // collateral amount
+	app_local_del
+	byte "lamt" // loan amount
+	app_local_del
+	byte "lvr" // last valid round of lending offer
+	app_local_del
+	byte "lsa" // hash identifier of logic sig account
+	app_local_del
+	int 1
+	return

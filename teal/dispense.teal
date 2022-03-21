@@ -1,0 +1,42 @@
+#pragma version 5
+// arg_0 is asset ID
+// arg_1 is One time  maximum dispense amount
+
+// saftey check
+global ZeroAddress
+dup
+dup
+txn RekeyTo
+==
+assert
+txn CloseRemainderTo
+==
+assert
+txn AssetCloseTo
+==
+assert
+
+// Check the Fee is resonable, less than 2 * Minimum fee
+txn Fee
+global MinTxnFee
+int 2
+*
+<=
+// Check the Transaction type is AssetTransfer
+txn TypeEnum
+int axfer
+==
+&&
+// Check the asset is jUSD
+txn XferAsset
+arg_0
+btoi
+==
+&&
+// Check if amount requested is less than or equal to 10jUSD
+txn AssetAmount
+arg_1
+btoi
+<=
+&&
+return

@@ -1,0 +1,57 @@
+#pragma version 5
+// arg_0 is USDCa asset ID
+// arg_1 is lender's agreed lend amount
+// arg_2 is lastValid round
+// arg_3 is jina appID
+
+// saftey check
+global ZeroAddress
+dup
+dup
+txn RekeyTo
+==
+assert
+txn CloseRemainderTo
+==
+assert
+txn AssetCloseTo
+==
+assert
+
+// check if fee is zero (borrower pays)
+txn Fee
+int 0
+==
+
+// check if the txn is for lending USDCa
+txn XferAsset
+arg_0
+btoi
+==
+
+// check if amount requested is less than or equal to agreed USDCa lend
+txn AssetAmount
+arg_1
+btoi
+<=
+
+// check if aggreement is not-expired
+txn LastValid
+arg_2
+btoi
+<=
+
+// check if jina contract is called in this group
+gtxn 0 TypeEnum
+int appl
+==
+gtxn 0 ApplicationID
+arg_3
+btoi // jina smart contract's ID
+==
+&&
+&&
+&&
+&&
+&&
+return

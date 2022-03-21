@@ -1,0 +1,4 @@
+key.go
+*.swp
+go.sum
+sandbox/
