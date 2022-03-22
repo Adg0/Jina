@@ -125,4 +125,5 @@ Liquidator contract reads current price of NFT from oracle and if loan is more t
 	* after liquidation completes the remainig asset is unfrozen. This is possible by AVM 1.1 (contract to contract call). Liquidator contract calls Jina contract to unfreeze the asset.
 
 # Contact
-Discord
+Discord @1egen#0803
+
