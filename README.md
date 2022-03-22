@@ -4,7 +4,7 @@
 
 ## Demo
 
-Demo video: https://www.youtube.com/watch?v=54Eqj5IvLH0
+Demo video: https://www.youtube.com/watch?v=19qQuqAtNQE 
 
 [Presentation](/assets/presentation.pptx)
 
