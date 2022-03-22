@@ -97,7 +97,7 @@ We plan on releasing this project on mainnet.
 
 How liquidation happens?
 
-[![Liquidation anim](/assets/images/liquidate.svg)](https://youtu.be/19qQuqAtNQE?t=162 "Liquidation")
+[![Liquidation anim](/assets/images/liquidate-anim.png)](https://youtu.be/19qQuqAtNQE?t=162 "Liquidation")
 
 * Specify the addresss to liquidate
 * Pay 95% of collateral's value to Jina contract
