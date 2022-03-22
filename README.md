@@ -37,7 +37,7 @@ This will make your NFT leverageable for taking loan in Jina dapp.
 
 Optin to the I-O-U token of jina dapp **JUSD**, that has 1:1 value with USDCa.
 
-[![Optin to JUSD](/assets/images/optin_asa.png)](https://youtu.be/19qQuqAtNQE?t=95 "Optin to JUSD")
+[![Optin to JUSD](/assets/images/optin_asa.jpg)](https://youtu.be/19qQuqAtNQE?t=95 "Optin to JUSD")
 
 ### Providing Liquidity
 
