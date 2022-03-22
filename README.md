@@ -3,9 +3,10 @@
 ![Jina logo](/assets/images/jina_logo.svg)
 
 ## Demo
-Live demo: https://github.io/
 
 Demo video: https://www.youtube.com/watch?v=54Eqj5IvLH0
+
+[Presentation](/assets/presentation.pptx)
 
 ## About Jina
 
@@ -15,7 +16,7 @@ Leveraged NFT remains locked in your (*borrower*) address until the full loan am
 Assets(NFT) that require KYC or special permissions might benefit from this *pure non-custodial protocol*.
 
 With a 3% return for liquidity providers that supply liquidity to the protocol, Jina becomes the go-to site for delivering liquidity for NFTs.
-Liquidity providers will keep their liquidity asset in their account until a borrower uses it, at which point the protocol will reward them with an I-O-U stable-coin token and 3% of the borrowed amount.
+Liquidity providers will keep their liquidity asset in their account until a borrower uses it, at which point the protocol will reward them with an I-O-U stable-coin token plus 3% of the lent amount.
 
 ## Using Jina dapp
 
@@ -30,13 +31,13 @@ This will make your NFT leverageable for taking loan in Jina dapp.
 * Set manager and freeze admin address to Jina smartcontract
 * Set clawback to liquidator smartcontract
 
-![Screenshot transfer NFT admin addresses](/assets/images/acfg_to_jina.png)
+[![Screenshot transfer NFT admin addresses](/assets/images/acfg_to_jina.png)]()
 
 #### As a liquidity provider
 
 Optin to the I-O-U token of jina dapp **JUSD**, that has 1:1 value with USDCa.
 
-![Optin to JUSD](/assets/images/optin_asa.png)
+[![Optin to JUSD](/assets/images/optin_asa.png)](https://www.youtube.com/watch?v=54Eqj5IvLH0 "Demo - Optin to JUSD")
 
 ### Providing Liquidity
 
@@ -44,7 +45,7 @@ Choose which NFTs can borrow from your account.
 * Set maximum amount you are willing to lend.
 * Set expiration date for aggrement.
 
-![Providing liquidity](/assets/images/lend.png)
+[![Providing liquidity](/assets/images/lend.png)]()
 
 ### Leveraging NFT
 
@@ -54,36 +55,23 @@ Use your NFT as collateral, to borrow USDCa stablecoin.
 * Request loan
 You'll get requested loan amount in USDCa and your NFT will be locked.
 
-![Leverage NFT](/assets/images/borrow.png)
+[![Leverage NFT](/assets/images/borrow.png)]()
 
 ### Repaying loan
 
 Send USDCa to Jina contract.
 Your loan amount state will be decremented by sent repaid amount.
 
-![Repay loan](/assets/images/repay.png)
+[![Repay loan](/assets/images/repay.png)]()
 
-Your collateral assets will be unfrozen, if you paid the full loan amount.
+If you pay the full loan amount, your collateral assets will be unfrozen.
 
 ### Claming USDCa
 
 Send JUSD(I-O-U token of Jina contract) to Jina contract.
 You'll receive a 1:1 USDCa for the JUSD you send.
 
-![Claim USDCa](/assets/images/claim.png)
-
-### Liquidation
-
-How liquidation happens?
-
-![Liquidation anim](/assets/images/liquidate.svg)
-
-Specify the addresss to liquidate
-Pay 95% of collateral's value to Jina contract
-Set an account that will receive the liquidated asset
-You'll be sent the collateral to the address you specified
-
-![Liquidation](/assets/images/liquidate.png)
+[![Claim USDCa](/assets/images/claim.png)]()
 
 ## Future
 
@@ -92,7 +80,7 @@ We plan on releasing this project on mainnet.
 ## Building Jina Locally
 
 1. Go to [Jina frontend](https://github.com/adapole/jina_frontend) and deploy the web interface.
-2. [Optin](#Optin to Jina) to Jina contract.
+2. [Optin](https://github.com/Adg0/Jina#optin-to-jina) to Jina contract.
 
 ## Techincal info
 
@@ -102,10 +90,22 @@ We plan on releasing this project on mainnet.
 * A 3% fee is paid to take out loan.
 * Lenders sign a delegated logic signature to allow any account to withdraw USDCa that fullfill the following:
 	1. Calls Jina contract
-	2. Withdraws maximum of staked amount
+	2. Withdraws atmost staked amount
 * Any account that holds JUSD can claim 1:1 USDCa by sending the JUSD to Jina contract.
 * Borrower can borrow from upto 4 lenders
-* Liquidation call:
+* Liquidation
+
+How liquidation happens?
+
+[![Liquidation anim](/assets/images/liquidate.svg)]()
+
+* Specify the addresss to liquidate
+* Pay 95% of collateral's value to Jina contract
+* Set an account that will receive the liquidated asset
+* You'll be sent the collateral to the address you specified
+
+[![Liquidation](/assets/images/liquidate.png)]()
+
 
 ### Smartcontract
 
