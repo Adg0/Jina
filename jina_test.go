@@ -161,14 +161,14 @@ func TestBorrowCallSmartContract(t *testing.T) {
 	lenderz := make([]Lender, 2)
 	app.txParams.Fee = types.MicroAlgos(uint64((len(lenderz)*2)+2) * app.txParams.MinFee)
 	lenderz[0].Address = ToAddr
-	lenderz[0].Amount = uint64(10000000)
+	lenderz[0].Amount = uint64(1000000)
 	lenderz[0].Lsa, err = FetchLsigFromFile("./codec/lender_lsig_To.codec")
 	if err != nil {
 		fmt.Printf("FetchLsig found error, %s", err)
 		return
 	}
 	lenderz[1].Address = ThirdAddr
-	lenderz[1].Amount = uint64(10000000)
+	lenderz[1].Amount = uint64(1000000)
 	lenderz[1].Lsa, err = FetchLsigFromFile("./codec/lender_lsig_Third.codec")
 	if err != nil {
 		fmt.Printf("FetchLsig found error, %s", err)

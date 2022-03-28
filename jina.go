@@ -180,7 +180,7 @@ func LenderCallSmartContract(algodClient *algod.Client, appArgs ApplicationTxnAr
 	lsigArgs := make([][]byte, 5)
 	var buf [6][8]byte
 	binary.BigEndian.PutUint64(buf[0][:], USDCa)                                           // USDCa asset ID
-	binary.BigEndian.PutUint64(buf[1][:], 80000000)                                        // loan available (50 USDCa)
+	binary.BigEndian.PutUint64(buf[1][:], 2000000)                                         // loan available (50 USDCa)
 	binary.BigEndian.PutUint64(buf[2][:], 172800+uint64(appArgs.txParams.FirstRoundValid)) // Expiring lifespan: 17280 rounds == 1 day
 	binary.BigEndian.PutUint64(buf[3][:], AppID)                                           // jina appID
 	binary.BigEndian.PutUint64(buf[4][:], LFT_jina)                                        // LFT-jina asset ID
