@@ -2,594 +2,380 @@ package jina
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
+	"log"
 	"testing"
 
 	"github.com/algorand/go-algorand-sdk/crypto"
-	"github.com/algorand/go-algorand-sdk/mnemonic"
-	"github.com/algorand/go-algorand-sdk/types"
+	"github.com/algorand/go-algorand-sdk/future"
 )
-
-func TestOptinASA(t *testing.T) {
-	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
-	if err != nil {
-		t.Errorf("algodClient found error, %s", err)
-	}
-	sk, err := mnemonic.ToPrivateKey(ToMn) // mnemonic of address that wants to optin
-	if err != nil {
-		t.Errorf("Error recovering account key: %s\n", err)
-	}
-	err = OptinASA(algodClient, sk, JUSD) // assetID to optin to
-	if err != nil {
-		t.Errorf("test found error, %s", err)
-	}
-}
 
 func TestConfigASA(t *testing.T) {
 	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
 	if err != nil {
 		t.Errorf("algodClient found error, %s", err)
 	}
-	sk, err := mnemonic.ToPrivateKey(ReserveMn) // mnemonic of admin address (manager address)
+
+	accts, err := GetAccounts()
 	if err != nil {
-		t.Errorf("Error recovering account key: %s\n", err)
+		log.Fatalf("Failed to get accounts: %+v", err)
 	}
-	err = ConfigASA(algodClient, sk, JUSD)
+
+	acct := accts[2]
+
+	err = ConfigASA(algodClient, acct.PrivateKey, 2, 55, 54, 86)
 	if err != nil {
 		t.Errorf("test found error, %s", err)
 	}
 }
 
-func TestOptinSmartContract(t *testing.T) {
+func TestStart(t *testing.T) {
+	// create USDC asset
 	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
 	if err != nil {
 		t.Errorf("algodClient found error, %s", err)
 	}
 
-	var app ApplicationTxnArgs
-	app.onCompletion = types.OptInOC
-	app.appID = AppID
-	app.sk, err = mnemonic.ToPrivateKey(ToMn) // mnemonic of address that wants to optin
+	accts, err := GetAccounts()
 	if err != nil {
-		t.Errorf("Error recovering account key: %s\n", err)
+		log.Fatalf("Failed to get accounts: %+v", err)
 	}
-	app.sender, err = crypto.GenerateAddressFromSK(app.sk)
-	if err != nil {
-		t.Errorf("Error recovering account address: %s\n", err)
-	}
-	txID, err := CallSmartContract(algodClient, app, nil, nil, "./dryrun/optin.msgp")
-	t.Logf("txID = %s\n", txID)
+
+	acct := accts[0]
+
+	err = Start(algodClient, acct)
 	if err != nil {
 		t.Errorf("test found error, %s", err)
 	}
 }
 
-func TestCallSmartContractLender(t *testing.T) {
+func TestOptinASA(t *testing.T) {
 	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
 	if err != nil {
 		t.Errorf("algodClient found error, %s", err)
 	}
 
-	var app ApplicationTxnArgs
-	app.onCompletion = types.NoOpOC
-	dryrunFile := "./dryrun/lender.msgp"
-	app.appID = AppID
-	arg := make([][]byte, 5)
-	arg[0] = []byte("lend")
-	app.appArgs = arg
-	app.sk, err = mnemonic.ToPrivateKey(ToMn)  // mnemonic of address that wants to call app
-	lsigFile := "./codec/lender_lsig_To.codec" // codec file path
+	accts, err := GetAccounts()
 	if err != nil {
-		t.Errorf("Error recovering account key: %s\n", err)
+		log.Fatalf("Failed to get accounts: %+v", err)
 	}
-	app.sender, err = crypto.GenerateAddressFromSK(app.sk)
-	if err != nil {
-		t.Errorf("Error recovering account address: %s\n", err)
-	}
-	txID, err := LenderCallSmartContract(algodClient, app, lsigFile, dryrunFile)
-	t.Logf("txID = %s\n", txID)
+
+	acct := accts[0]
+
+	err = OptinASA(algodClient, acct.PrivateKey, 56)
 	if err != nil {
 		t.Errorf("test found error, %s", err)
 	}
 }
 
-func TestCallSmartContractUpdateBorrow(t *testing.T) {
+func TestDeploy(t *testing.T) {
 	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
 	if err != nil {
 		t.Errorf("algodClient found error, %s", err)
 	}
 
-	var app ApplicationTxnArgs
-	app.onCompletion = types.NoOpOC
-	app.appID = AppID
-	arg := make([][]byte, 3)
-	var buf [2][8]byte
-	binary.BigEndian.PutUint64(buf[0][:], LFT_jina)  // LFT-jina asset ID
-	binary.BigEndian.PutUint64(buf[1][:], uint64(1)) // collateral amount
-	arg[0] = []byte("update_borrow")
-	arg[1] = buf[0][:] // collateral_assets
-	arg[2] = buf[1][:] // collateral_amount
-	app.appArgs = arg
-	app.foreignApps = append(app.foreignApps, LqtID)        // jina appID
-	app.foreignAssets = append(app.foreignAssets, LFT_jina) // collateral assetID
-	app.sk, err = mnemonic.ToPrivateKey(BonusMn)            // mnemonic of address that wants to call app
+	accts, err := GetAccounts()
 	if err != nil {
-		t.Errorf("Error recovering account key: %s\n", err)
-	}
-	app.sender, err = crypto.GenerateAddressFromSK(app.sk)
-	if err != nil {
-		t.Errorf("Error recovering account address: %s\n", err)
+		log.Fatalf("Failed to get accounts: %+v", err)
 	}
 
-	txID, err := CallSmartContract(algodClient, app, nil, nil, "./dryrun/update_borrow.msgp")
-	t.Logf("txID = %s\n", txID)
+	acct := accts[1]
+
+	err = Deploy(algodClient, acct, 1, "./abi/manager.json", "./dryrun/app.msgp", "./dryrun/response/app.json")
+	if err != nil {
+		t.Errorf("test found error, %s", err)
+	}
+
+}
+
+func TestUpdate(t *testing.T) {
+	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
+	if err != nil {
+		t.Errorf("algodClient found error, %s", err)
+	}
+
+	accts, err := GetAccounts()
+	if err != nil {
+		log.Fatalf("Failed to get accounts: %+v", err)
+	}
+
+	acct := accts[1]
+
+	err = Update(algodClient, acct, "./abi/manager.json", "./dryrun/update.msgp", "./dryrun/response/update.json")
+	if err != nil {
+		t.Errorf("test found error, %s", err)
+	}
+
+}
+
+func TestFund(t *testing.T) {
+	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
+	if err != nil {
+		t.Errorf("algodClient found error, %s", err)
+	}
+
+	accts, err := GetAccounts()
+	if err != nil {
+		log.Fatalf("Failed to get accounts: %+v", err)
+	}
+
+	acct := accts[0]
+
+	err = Fund(algodClient, acct, 2, 100000000)
 	if err != nil {
 		t.Errorf("test found error, %s", err)
 	}
 }
 
-func TestBorrowCallSmartContract(t *testing.T) {
-	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
-	if err != nil {
-		t.Errorf("algodClient found error, %s", err)
-	}
-	var app ApplicationTxnArgs
-	app.appID = AppID // first smart contract, that users interact with
-	arg := make([][]byte, 3)
-	var buf [2][8]byte
-	binary.BigEndian.PutUint64(buf[0][:], LFT_jina)  // LFT-jina asset ID
-	binary.BigEndian.PutUint64(buf[1][:], uint64(2)) // collateral amount
-	arg[0] = []byte("borrow")
-	arg[1] = buf[0][:] // collateral_assets
-	arg[2] = buf[1][:] // collateral_amount
-	app.appArgs = arg
-	app.sk, err = mnemonic.ToPrivateKey(BonusMn) // mnemonic of address that wants to borrow
-	if err != nil {
-		t.Errorf("Error recovering account key: %s\n", err)
-	}
-	app.sender, err = crypto.GenerateAddressFromSK(app.sk)
-	if err != nil {
-		t.Errorf("Error recovering account address: %s\n", err)
-	}
-	app.txParams, err = algodClient.SuggestedParams().Do(context.Background())
-	if err != nil {
-		t.Errorf("Error getting suggested tx params: %s\n", err)
-	}
-	app.txParams.FlatFee = true
-
-	lenderz := make([]Lender, 2)
-	app.txParams.Fee = types.MicroAlgos(uint64((len(lenderz)*2)+2) * app.txParams.MinFee)
-	lenderz[0].Address = ToAddr
-	lenderz[0].Amount = uint64(1000000)
-	lenderz[0].Lsa, err = FetchLsigFromFile("./codec/lender_lsig_To.codec")
-	if err != nil {
-		fmt.Printf("FetchLsig found error, %s", err)
-		return
-	}
-	lenderz[1].Address = ThirdAddr
-	lenderz[1].Amount = uint64(1000000)
-	lenderz[1].Lsa, err = FetchLsigFromFile("./codec/lender_lsig_Third.codec")
-	if err != nil {
-		fmt.Printf("FetchLsig found error, %s", err)
-		return
-	}
-
-	app.foreignApps = append(app.foreignApps, LqtID)        // jina appID
-	app.foreignAssets = append(app.foreignAssets, LFT_jina) // collateral assetID
-	app.foreignAssets = append(app.foreignAssets, JUSD)     // jUSD assetID
-	err = BorrowCallSmartContract(algodClient, app, lenderz, "./dryrun/borrow.msgp")
-	if err != nil {
-		t.Errorf("test found error, %s", err)
-	}
-}
-
-func TestLiquidate(t *testing.T) {
+func TestCreateApps(t *testing.T) {
 	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
 	if err != nil {
 		t.Errorf("algodClient found error, %s", err)
 	}
 
-	var app ApplicationTxnArgs
-	app.onCompletion = types.NoOpOC
-	app.appID = LqtID
-	arg := make([][]byte, 1)
-	arg[0] = []byte(ReserveAddr)
-	app.appArgs = arg
-	assetAmount := uint64(93200000)
-	app.foreignAssets = append(app.foreignAssets, LFT_jina) // asset to be liquidated
-	app.accounts = append(app.accounts, BonusAddr)          // account to liquidated
-	app.accounts = append(app.accounts, ReserveAddr)        // account that recieves liquidation asset
-	app.foreignApps = append(app.foreignApps, AppID)        // jina appID
-	// get suggested transaction parameters
-	app.txParams, err = algodClient.SuggestedParams().Do(context.Background())
+	accts, err := GetAccounts()
 	if err != nil {
-		t.Errorf("Error getting suggested tx params: %s\n", err)
-	}
-	app.txParams.FlatFee = true
-	app.txParams.Fee = 4000
-	app.sk, err = mnemonic.ToPrivateKey(ToMn) // mnemonic of address that initiates liquidation
-	if err != nil {
-		t.Errorf("Error recovering account key: %s\n", err)
-	}
-	app.sender, err = crypto.GenerateAddressFromSK(app.sk)
-	if err != nil {
-		t.Errorf("Error recovering account address: %s\n", err)
+		log.Fatalf("Failed to get accounts: %+v", err)
 	}
 
-	err = RepayClaimCallSmartContract(algodClient, app, USDCa, assetAmount, "./dryrun/liquidate.msgp")
-	if err != nil {
-		t.Errorf("test found error, %s", err)
-	}
-}
-
-func TestRepayCallSmartContract(t *testing.T) {
-	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
-	if err != nil {
-		t.Errorf("algodClient found error, %s", err)
-	}
-
-	var app ApplicationTxnArgs
-	app.onCompletion = types.NoOpOC
-	app.appID = AppID
-	arg := make([][]byte, 1)
-	arg[0] = []byte("repay")
-	app.appArgs = arg
-	app.foreignAssets = append(app.foreignAssets, LFT_jina)
-	// get suggested transaction parameters
-	app.txParams, err = algodClient.SuggestedParams().Do(context.Background())
-	if err != nil {
-		t.Errorf("Error getting suggested tx params: %s\n", err)
-	}
-	app.txParams.FlatFee = true
-	app.txParams.Fee = 3000
-	app.sk, err = mnemonic.ToPrivateKey(BonusMn) // mnemonic of address that wants to repay and unfreeze collateral
-	assetAmount := uint64(10000000)
-	if err != nil {
-		t.Errorf("Error recovering account key: %s\n", err)
-	}
-	app.sender, err = crypto.GenerateAddressFromSK(app.sk)
-	if err != nil {
-		t.Errorf("Error recovering account address: %s\n", err)
-	}
-
-	err = RepayClaimCallSmartContract(algodClient, app, USDCa, assetAmount, "./dryrun/repay.msgp")
-	if err != nil {
-		t.Errorf("test found error, %s", err)
-	}
-}
-
-func TestClaimCallSmartContract(t *testing.T) {
-	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
-	if err != nil {
-		t.Errorf("algodClient found error, %s", err)
-	}
-
-	var app ApplicationTxnArgs
-	app.onCompletion = types.NoOpOC
-	app.appID = AppID
-	arg := make([][]byte, 1)
-	arg[0] = []byte("claim")
-	app.appArgs = arg
-	app.foreignAssets = append(app.foreignAssets, USDCa)
-	// get suggested transaction parameters
-	app.txParams, err = algodClient.SuggestedParams().Do(context.Background())
-	if err != nil {
-		t.Errorf("Error getting suggested tx params: %s\n", err)
-	}
-	app.txParams.FlatFee = true
-	app.txParams.Fee = 3000
-	app.sk, err = mnemonic.ToPrivateKey(ThirdMn) // mnemonic of address that wants to call app
-	assetAmount := uint64(10000000)
-	if err != nil {
-		t.Errorf("Error recovering account key: %s\n", err)
-	}
-	app.sender, err = crypto.GenerateAddressFromSK(app.sk)
-	if err != nil {
-		t.Errorf("Error recovering account address: %s\n", err)
-	}
-
-	err = RepayClaimCallSmartContract(algodClient, app, JUSD, assetAmount, "./dryrun/claim.msgp")
-	if err != nil {
-		t.Errorf("test found error, %s", err)
-	}
-}
-
-func TestCloseOutSmartContract(t *testing.T) {
-	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
-	if err != nil {
-		t.Errorf("algodClient found error, %s", err)
-	}
-
-	var app ApplicationTxnArgs
-	app.onCompletion = types.CloseOutOC
-	app.appID = AppID
-	arg := make([][]byte, 1)
-	arg[0] = []byte("close_out")
-	app.appArgs = arg
-	app.foreignAssets = append(app.foreignAssets, LFT_jina) // assets to unfreeze
-	app.foreignAssets = append(app.foreignAssets, JUSD)     // assets to unfreeze
-	app.sk, err = mnemonic.ToPrivateKey(ToMn)               // mnemonic of address that wants to call app
-	if err != nil {
-		t.Errorf("Error recovering account key: %s\n", err)
-	}
-	app.sender, err = crypto.GenerateAddressFromSK(app.sk)
-	if err != nil {
-		t.Errorf("Error recovering account address: %s\n", err)
-	}
-
-	txID, err := CallSmartContract(algodClient, app, nil, nil, "./dryrun/closeout.msgp")
-	t.Logf("txID = %s\n", txID)
-	if err != nil {
-		t.Errorf("test found error, %s", err)
-	}
-}
-
-func TestClearSmartContract(t *testing.T) {
-	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
-	if err != nil {
-		t.Errorf("algodClient found error, %s", err)
-	}
-
-	var app ApplicationTxnArgs
-	app.onCompletion = types.ClearStateOC
-	app.appID = AppID
-	arg := make([][]byte, 1)
-	arg[0] = []byte("clear")
-	app.appArgs = arg
-	app.foreignAssets = append(app.foreignAssets, LFT_jina) // assets to unfreeze
-	app.foreignAssets = append(app.foreignAssets, JUSD)     // assets to unfreeze
-	app.sk, err = mnemonic.ToPrivateKey(BonusMn)            // mnemonic of address that wants to call app
-	if err != nil {
-		t.Errorf("Error recovering account key: %s\n", err)
-	}
-	app.sender, err = crypto.GenerateAddressFromSK(app.sk)
-	if err != nil {
-		t.Errorf("Error recovering account address: %s\n", err)
-	}
-
-	app.txParams, err = algodClient.SuggestedParams().Do(context.Background())
-	if err != nil {
-		t.Errorf("Error getting suggested tx params: %s\n", err)
-	}
-	app.txParams.FlatFee = true
-	app.txParams.Fee = 2000
-	txID, err := CallSmartContract(algodClient, app, nil, nil, "./dryrun/clear.msgp")
-	t.Logf("txID = %s\n", txID)
-	if err != nil {
-		t.Errorf("test found error, %s", err)
-	}
-}
-
-func TestCallSmartContractCreate(t *testing.T) {
-	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
-	if err != nil {
-		t.Errorf("algodClient found error, %s", err)
-	}
-
-	var app ApplicationTxnArgs
-	app.onCompletion = types.NoOpOC
-	app.appID = AppID
-	arg := make([][]byte, 2)
-	var buf [1][8]byte
-	binary.BigEndian.PutUint64(buf[0][:], LqtID) // Lquidator appID
-	arg[0] = []byte("create")
-	arg[1] = buf[0][:]
-	app.appArgs = arg
-	app.foreignAssets = append(app.foreignAssets, USDCa)
-	app.foreignAssets = append(app.foreignAssets, JUSD)
-	app.foreignApps = append(app.foreignApps, LqtID)
-	app.accounts = append(app.accounts, ReserveAddr)
-	app.txParams, err = algodClient.SuggestedParams().Do(context.Background())
-	if err != nil {
-		t.Errorf("Error getting suggested tx params: %s\n", err)
-	}
-	app.txParams.FlatFee = true
-	app.txParams.Fee = 3000
-	app.sk, err = mnemonic.ToPrivateKey(BorrowMn) // mnemonic of address that wants to call app
-	if err != nil {
-		t.Errorf("Error recovering account key: %s\n", err)
-	}
-	app.sender, err = crypto.GenerateAddressFromSK(app.sk)
-	if err != nil {
-		t.Errorf("Error recovering account address: %s\n", err)
-	}
-
-	txID, err := CallSmartContract(algodClient, app, nil, nil, "./dryrun/create.msgp")
-	t.Logf("txID = %s\n", txID)
-	if err != nil {
-		t.Errorf("test found error, %s", err)
-	}
-}
-
-func TestLiquidateChangeGlobalStates(t *testing.T) {
-	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
-	if err != nil {
-		t.Errorf("algodClient found error, %s", err)
-	}
-
-	var app ApplicationTxnArgs
-	app.onCompletion = types.NoOpOC
-	app.appID = LqtID
-	arg := make([][]byte, 2)
-	var buf [2][8]byte
-	binary.BigEndian.PutUint64(buf[0][:], AppID) // Lquidator appID
-	binary.BigEndian.PutUint64(buf[1][:], AppID) // Lquidator appID
-	arg[0] = buf[0][:]
-	arg[1] = buf[1][:]
-	app.appArgs = arg
-	app.sk, err = mnemonic.ToPrivateKey(BorrowMn) // mnemonic of address that wants to update app
-	if err != nil {
-		t.Errorf("Error recovering account key: %s\n", err)
-	}
-	app.sender, err = crypto.GenerateAddressFromSK(app.sk)
-	if err != nil {
-		t.Errorf("Error recovering account address: %s\n", err)
-	}
-
-	txID, err := CallSmartContract(algodClient, app, nil, nil, "./dryrun/liquidate_jinaID.msgp")
-	t.Logf("txID = %s\n", txID)
-	if err != nil {
-		t.Errorf("test found error, %s", err)
-	}
-}
-
-func TestUpdateLiquidatorSmartContract(t *testing.T) {
-	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
-	if err != nil {
-		t.Errorf("algodClient found error, %s", err)
-	}
-
-	var app ApplicationTxnArgs
-	app.onCompletion = types.UpdateApplicationOC
-	app.appID = LqtID
-
-	/*
-		arg := make([][]byte, 2)
-		var buf [2][8]byte
-		binary.BigEndian.PutUint64(buf[0][:], AppID) // Lquidator appID
-		binary.BigEndian.PutUint64(buf[1][:], AppID) // Lquidator appID
-		arg[0] = buf[0][:]
-		arg[1] = buf[1][:]
-		app.appArgs = arg
-	*/
-
-	app.sk, err = mnemonic.ToPrivateKey(BorrowMn) // mnemonic of address that wants to update app
-	if err != nil {
-		t.Errorf("Error recovering account key: %s\n", err)
-	}
-	app.sender, err = crypto.GenerateAddressFromSK(app.sk)
-	if err != nil {
-		t.Errorf("Error recovering account address: %s\n", err)
-	}
-
+	acct := accts[1]
 	// get approvalProg and clearProg as []byte
-	clearProg, err := CompileSmartContractTeal(algodClient, "./teal/liquidatorClear.teal")
+	lqtClear, err := CompileSmartContractTeal(algodClient, "./teal/clearState.teal")
 	if err != nil {
-		t.Errorf("clearProg found error, %s", err)
+		log.Fatalf("clearState found error, %s", err)
 	}
-	approvalProg, err := CompileSmartContractTeal(algodClient, "./teal/liquidatorProg.teal")
+	lqtApp, err := CompileSmartContractTeal(algodClient, "./teal/liquidatorProg.teal")
 	if err != nil {
-		t.Errorf("approvalProg found error, %s", err)
+		log.Fatalf("liquidatorProg found error, %s", err)
 	}
-	txID, err := CallSmartContract(algodClient, app, clearProg, approvalProg, "./dryrun/update_liquidator.msgp")
-	t.Logf("txID = %s\n", txID)
+	jinaClear, err := CompileSmartContractTeal(algodClient, "./teal/jinaClear.teal")
+	if err != nil {
+		log.Fatalf("jinaClear found error, %s", err)
+	}
+	jinaApp, err := CompileSmartContractTeal(algodClient, "./teal/approvalProg.teal")
+	if err != nil {
+		log.Fatalf("approvalProg found error, %s", err)
+	}
+	fmt.Printf("address: %s\n", crypto.GetApplicationAddress(2).String())
+	err = CreateApps(algodClient, acct, 1, lqtApp, lqtClear, jinaApp, jinaClear, "./abi/manager.json", "./dryrun/create_apps.msgp", "./dryrun/response/create_apps.json")
 	if err != nil {
 		t.Errorf("test found error, %s", err)
 	}
+
 }
 
-func TestUpdateSmartContract(t *testing.T) {
+func TestConfigureApps(t *testing.T) {
 	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
 	if err != nil {
 		t.Errorf("algodClient found error, %s", err)
 	}
 
-	var app ApplicationTxnArgs
-	app.onCompletion = types.UpdateApplicationOC
-	app.appID = AppID
-	app.sk, err = mnemonic.ToPrivateKey(BorrowMn) // mnemonic of address that wants to update app
+	accts, err := GetAccounts()
 	if err != nil {
-		t.Errorf("Error recovering account key: %s\n", err)
-	}
-	app.sender, err = crypto.GenerateAddressFromSK(app.sk)
-	if err != nil {
-		t.Errorf("Error recovering account address: %s\n", err)
+		log.Fatalf("Failed to get accounts: %+v", err)
 	}
 
-	// get approvalProg and clearProg as []byte
-	clearProg, err := CompileSmartContractTeal(algodClient, "./teal/clearProg.teal")
+	acct := accts[1]
+
+	err = ConfigureApps(algodClient, acct, 54, 55, 1, 56, "./abi/manager.json", "./dryrun/config.msgp", "./dryrun/response/config.json")
 	if err != nil {
-		t.Errorf("clearProg found error, %s", err)
+		t.Errorf("test found error, %s", err)
 	}
-	approvalProg, err := CompileSmartContractTeal(algodClient, "./teal/approvalProg.teal")
+
+}
+
+func TestUsdc(t *testing.T) {
+	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
 	if err != nil {
-		t.Errorf("approvalProg found error, %s", err)
+		t.Errorf("algodClient found error, %s", err)
 	}
-	txID, err := CallSmartContract(algodClient, app, clearProg, approvalProg, "./dryrun/update.msgp")
-	t.Logf("txID = %s\n", txID)
+
+	accts, err := GetAccounts()
+	if err != nil {
+		log.Fatalf("Failed to get accounts: %+v", err)
+	}
+
+	acct := accts[0]
+	txParams, err := algodClient.SuggestedParams().Do(context.Background())
+	if err != nil {
+		log.Fatalf("Failed to get suggeted params: %+v", err)
+	}
+
+	rec := "Z5PCDU5SNKRFJIIOIZDY2PUUQ4RTV4RZYVKHJPPYKCQLGNGGEGCZD5PDT4"
+	//rec := "U2PARS7KSZ3XIY6OU45Q43UHRCYYCRS7A32RRYFQER2YCCWE4ARKYB2WXQ"
+	txn, _ := future.MakeAssetTransferTxn(acct.Address.String(), rec, 100000000, nil, txParams, "", 1)
+	signSendWait(algodClient, acct.PrivateKey, txn)
 	if err != nil {
 		t.Errorf("test found error, %s", err)
 	}
 }
 
-func TestCompileSmartContractTeal(t *testing.T) {
+func TestSendJusd(t *testing.T) {
 	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
 	if err != nil {
 		t.Errorf("algodClient found error, %s", err)
 	}
-	compiledByte, err := CompileSmartContractTeal(algodClient, "./teal/clearProg.teal")
-	t.Logf("compiledByte = %v\n", compiledByte)
-	if err != nil {
-		t.Errorf("clear.teal found error, %s", err)
-	}
-	compiledByte, err = CompileSmartContractTeal(algodClient, "./teal/approvalProg.teal")
-	t.Logf("compiledByte = %v\n", compiledByte)
-	if err != nil {
-		t.Errorf("approval.teal found error, %s", err)
-	}
-}
 
-func TestDeploySmartContract(t *testing.T) {
-	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
+	accts, err := GetAccounts()
 	if err != nil {
-		t.Errorf("algodClient found error, %s", err)
+		log.Fatalf("Failed to get accounts: %+v", err)
 	}
-	var app ApplicationTxnArgs
-	globalInts := uint64(2)
-	globalBytes := uint64(0) // Liquidator address
-	localInts := uint64(2)   // lender(assets allowed array, amount) borrower(collateral asset, amount, loan)
-	localBytes := uint64(4)  // lsig of lender
-	arg := make([][]byte, 2)
-	var buf [1][8]byte
-	binary.BigEndian.PutUint64(buf[0][:], LqtID) // Lquidator appID
-	arg[0] = []byte("create")
-	arg[1] = buf[0][:]
-	app.appArgs = arg
-	app.sk, err = mnemonic.ToPrivateKey(BorrowMn) // mnemonic of address that will create the app
-	if err != nil {
-		t.Errorf("Error recovering account key: %s\n", err)
-	}
-	app.sender, err = crypto.GenerateAddressFromSK(app.sk)
-	if err != nil {
-		t.Errorf("Error recovering account address: %s\n", err)
-	}
-	appId, err := DeploySmartContract(algodClient, app, globalInts, localInts, globalBytes, localBytes, "./teal/clearProg.teal", "./teal/approvalProg.teal")
-	t.Logf("appId = %d\n", appId)
+
+	acct := accts[1]
+
+	rec := crypto.GetApplicationAddress(55)
+	err = SendJusd(algodClient, acct, rec, 56, "./abi/manager.json", "./dryrun/sendJusd.msgp", "./dryrun/response/sendJusd.json")
 	if err != nil {
 		t.Errorf("test found error, %s", err)
 	}
 }
 
-func TestDeploySmartContractLiquidator(t *testing.T) {
+func TestChildUpdate(t *testing.T) {
 	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
 	if err != nil {
 		t.Errorf("algodClient found error, %s", err)
 	}
-	var app ApplicationTxnArgs
-	globalInts := uint64(2)
-	globalBytes := uint64(0)
-	localInts := uint64(0)
-	localBytes := uint64(0)
-	arg := make([][]byte, 2)
-	//arg[0] = []byte("create")
-	var buf [2][8]byte
-	binary.BigEndian.PutUint64(buf[0][:], AppID) // jina
-	binary.BigEndian.PutUint64(buf[1][:], AppID) // oracle
-	arg[0] = buf[0][:]
-	arg[1] = buf[1][:]
-	app.appArgs = arg
-	app.sk, err = mnemonic.ToPrivateKey(BorrowMn) // mnemonic of address that will create the app
+
+	accts, err := GetAccounts()
 	if err != nil {
-		t.Errorf("Error recovering account key: %s\n", err)
+		log.Fatalf("Failed to get accounts: %+v", err)
 	}
-	app.sender, err = crypto.GenerateAddressFromSK(app.sk)
-	if err != nil {
-		t.Errorf("Error recovering account address: %s\n", err)
-	}
-	appId, err := DeploySmartContract(algodClient, app, globalInts, localInts, globalBytes, localBytes, "./teal/liquidatorClear.teal", "./teal/liquidatorProg.teal")
-	t.Logf("appId = %d\n", appId)
+
+	acct := accts[1]
+
+	err = ChildUpdate(algodClient, acct, 55, "./teal/approvalProg.teal", "./teal/jinaClear.teal", "./abi/manager.json", "./dryrun/update_child.msgp", "./dryrun/response/update_child.json")
 	if err != nil {
 		t.Errorf("test found error, %s", err)
 	}
+}
+
+func TestOptin(t *testing.T) {
+	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
+	if err != nil {
+		t.Errorf("algodClient found error, %s", err)
+	}
+
+	accts, err := GetAccounts()
+	if err != nil {
+		log.Fatalf("Failed to get accounts: %+v", err)
+	}
+
+	acct := accts[0]
+
+	err = Optin(algodClient, acct, 2, "./abi/jina.json", "./dryrun/optin.msgp", "./dryrun/response/optin.json")
+	if err != nil {
+		t.Errorf("test found error, %s", err)
+	}
+}
+
+func TestEarn(t *testing.T) {
+	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
+	if err != nil {
+		t.Errorf("algodClient found error, %s", err)
+	}
+
+	accts, err := GetAccounts()
+	if err != nil {
+		log.Fatalf("Failed to get accounts: %+v", err)
+	}
+
+	acct := accts[0]
+
+	xids := []uint64{86, 56, 57}
+	aamt := uint64(100000000)
+	lvr := uint64(172800) //+ uint64(txParams.FirstRoundValid)
+
+	lsigArgs := make([][]byte, 4)
+	var buf [4][8]byte
+	binary.BigEndian.PutUint64(buf[0][:], 1)    // USDCa asset ID
+	binary.BigEndian.PutUint64(buf[1][:], aamt) // loan available (50 USDCa)
+	binary.BigEndian.PutUint64(buf[2][:], lvr)  // Expiring lifespan: 17280 rounds == 1 day
+	binary.BigEndian.PutUint64(buf[3][:], 55)   // jina appID
+	lsigArgs[0] = buf[0][:]
+	lsigArgs[1] = buf[1][:]
+	lsigArgs[2] = buf[2][:]
+	lsigArgs[3] = buf[3][:]
+
+	lsaRaw := CompileToLsig(algodClient, lsigArgs, "./teal/logicSigDelegated.teal", "./codec/lender_lsig.codec", acct.PrivateKey)
+	if lsaRaw.SigningKey == nil {
+		t.Errorf("lsig is empty")
+	}
+	lsa := sha256.Sum256(lsaRaw.Lsig.Logic)
+
+	err = Earn(algodClient, acct, xids, aamt, lvr, lsa[:4], "./abi/jina.json", "./dryrun/earn.msgp", "./dryrun/response/earn.json")
+	if err != nil {
+		t.Errorf("test found error, %s", err)
+	}
+
+}
+
+func TestClaim(t *testing.T) {
+	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
+	if err != nil {
+		t.Errorf("algodClient found error, %s", err)
+	}
+
+	accts, err := GetAccounts()
+	if err != nil {
+		log.Fatalf("Failed to get accounts: %+v", err)
+	}
+
+	acct := accts[0]
+
+	amt := uint64(100000000)
+
+	err = Claim(algodClient, acct, 55, amt, 1, 56, "./abi/jina.json", "./dryrun/claim.msgp", "./dryrun/response/claim.json")
+	if err != nil {
+		t.Errorf("test found error, %s", err)
+	}
+
+}
+
+func TestBorrow(t *testing.T) {
+	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
+	if err != nil {
+		t.Errorf("algodClient found error, %s", err)
+	}
+
+	accts, err := GetAccounts()
+	if err != nil {
+		log.Fatalf("Failed to get accounts: %+v", err)
+	}
+
+	acct := accts[2]
+
+	xids := []uint64{86}
+	camt := []uint64{20}
+	lamt := []uint64{10000000}
+
+	err = Borrow(algodClient, acct, accts[0], 1, xids, camt, lamt, "./codec/lender_lsig.codec", "./abi/jina.json", "./dryrun/borrow.msgp", "./dryrun/response/borrow.json")
+	if err != nil {
+		t.Errorf("test found error, %s", err)
+	}
+
+}
+
+func TestRepay(t *testing.T) {
+	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
+	if err != nil {
+		t.Errorf("algodClient found error, %s", err)
+	}
+
+	accts, err := GetAccounts()
+	if err != nil {
+		log.Fatalf("Failed to get accounts: %+v", err)
+	}
+
+	acct := accts[2]
+
+	xids := []uint64{86}
+	ramt := []uint64{1000000}
+
+	err = Repay(algodClient, acct, 55, 1, xids, ramt, "./abi/jina.json", "./dryrun/repay.msgp", "./dryrun/response/repay.json")
+	if err != nil {
+		t.Errorf("test found error, %s", err)
+	}
+
 }

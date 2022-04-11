@@ -1,9 +1,5 @@
-// TODO: verify AssetBalance
-// 		: use another borrower
-// 		: more cleanup of code
-// 		: sandbox for testing
 #pragma version 6
-
+// v0.0.1 accepts 1 collateral at a time.
 
 txn OnCompletion
 int NoOp
@@ -33,328 +29,603 @@ bnz creator_only
 // Unexpected OnCompletion value. Should be unreachable.
 err
 
-handle_noop:
 // Handle NoOp
+handle_noop:
+	// Handle borrowing
+	// (xids, camt, lamt,[lenders],[xids,jusd],[mng,lqt])
 	txna ApplicationArgs 0
-	store 10
-	load 10
-	byte "borrow"
+	method "borrow(axfer,uint64[],uint64[],uint64[],account,asset,asset,application,application)void"
 	==
 	bnz borrow
-	load 10
-	byte "update_borrow"
+
+	// Handle updating collateral
+	// (xids, camt,[xids],[mng,lqt])
+	txna ApplicationArgs 0
+	method "update_collateral(uint64[],uint64[],asset,application,application)void"
 	==
-	bnz borrower_update
-	load 10
-	byte "lend"
+	bnz update_collateral
+
+	// Handle liquidity providers
+	// (xids, aamt, lvr, lsa)
+	txna ApplicationArgs 0
+	method "earn(uint64[],uint64,uint64,byte[])void"
 	==
-	bnz lender
-	load 10
-	byte "repay"
+	bnz earn
+
+	// Handle repay
+	// (xids, ramt,unfreezables)
+	txna ApplicationArgs 0
+	method "repay(axfer,uint64[],uint64[],asset)void"
 	==
 	bnz repay
-	load 10
-	byte "claim"
+
+	// Handle claim
+	// (axfer,usdc)
+	txna ApplicationArgs 0
+	method "claim(axfer,asset)void"
 	==
 	bnz claim
-	load 10
-	byte "create"
+
+	// Handle create
+	// (mng)
+	txna ApplicationArgs 0
+	method "create(application)void"
 	==
 	bnz create
-	load 10
-	byte "return"
+
+	// Handle manage
+	// (mng,jusd,usdc)
+	txna ApplicationArgs 0
+	method "manage(application,asset,asset)void"
 	==
-	bnz return_asset
-	load 10
-	byte "liquidated"
-	==
-	bnz liquidated
+	bnz manage
+
 	// is invalid arg
 	err
 
-// borrow
+// Handle borrowing
 borrow:
-	callsub is_borrow_possible
-	assert
-	txn NumAccounts // number of lenders
-	store 0 // lender
-	txn Sender
-	global CurrentApplicationID
-	dup2
-	byte "xids" // as collateral_assets
-	app_local_get_ex
-	assert
-	int 0 // pointer to first asset in collateral_asset (increment by 8 for next asset)
-	extract_uint64
-	store 1 // collateral_assetID
-	byte "camt"
-	app_local_get_ex
-	assert
-	int 0 // pointer to first asset in collateral_asset (increment by 8 for next asset)
-	extract_uint64
-	store 2 // collateral_amount
-	b iou_to_lenders
-
-// loop to check next lender
-iou_to_lenders:
-	// build axfer transaction:
-	// send jUSD to loan providers in accounts array
-	load 0 // lender
-	int 0
-	==
-	bnz update_borrower_local_state
-
-	// check if lender allows collateral of borrower
-	load 0 // lender number (accounts array)
-	gtxns Sender
-	global CurrentApplicationID
-	byte "xids" // as allowed_assets
-	app_local_get_ex
-	assert
-	store 3 // allowed_assets in lender's local state
-	callsub check_asset_is_allowed
-
-	itxn_begin // replace with itxn_next for future (version 6)
-	int 0
-	itxn_field Fee
-	int axfer
-	itxn_field TypeEnum
-	//Asset ID must be in the assets array
-	global CurrentApplicationID
-	byte "jusd"
-	app_global_get_ex
-	assert // jUSD
-	itxn_field XferAsset
-
-	load 0 // lender
+	txna ApplicationArgs 2 // xids
+	txna ApplicationArgs 3 // camt
+	txna ApplicationArgs 4 // lamt
+	store 3
+	store 2
 	dup
-	dup2
-	gtxns XferAsset
-	int 10458941 // USDCa
+	len
+	store 0 // length of args passed
+	store 1
+	// Step-1: the argument arrays must be of equal length
+	load 0 // length of xids
+	dup
+	load 2 // camt
+	len
 	==
 	assert
-	gtxns Sender // lender-x
-	dup
-	dup
-	itxn_field AssetReceiver
-	global CurrentApplicationID
-	byte "aamt"
-	app_local_get_ex
-	assert
-	// stack = [ allowed_amount, Sender, load 0, load 0 ]
-	uncover 3
-	gtxns AssetAmount
-	dup
-	int 3
-	*
-	int 100
-	/
-	+
-	dup2
-	>=
-	assert
-	dup
-	cover 3
-	-
-	byte "aamt"
-	swap
-	app_local_put
+	load 3 // lamt
+	len
+	==
+	bnz check_args
+	err
 
-	dup
-	load 5 // requested loan amount
-	+
-	store 5 // requested loan amount
-	itxn_field AssetAmount
-	itxn_submit // remove on next update (version 6)
-	int 1
-	-
-	store 0
-	b iou_to_lenders
-
-// loop to check next assetID in local state
-check_asset_is_allowed:
-	// value of key: "allowed_assets"
-	load 1 // collateral_assetID of borrower
-	load 3 // allowed_assets []byte
+check_args:
+	// assets used as collateral(camt) and have loan requested exists.
+//	load 2 // camt
+//	load 4 // pointer
+//	extract_uint64
+//	int 0
+//	>
+	// in version v0.1, borrower must request some loan when borrowing
+	load 3 // lamt
 	load 4 // pointer
-	extract_uint64 // error when pointer+8 is greater than allowed_assets's length (means asset not allowed)
-	==
-	int 8 // increment by 8; since it is a uint64
+	extract_uint64
+	int 0
+	>
+	assert 
+	callsub verify_asset
+	bnz check_loan_health
+	err
+
+verify_asset:
+// verify asset admins
+	load 1 // xids
 	load 4 // pointer
-	+
-	store 4 // update pointer to point to next uint64 in []byte
-	bz check_asset_is_allowed
-	int 0 // reset pointer to 0 for next lender
-	store 4 // pointer
-	retsub
-
-update_borrower_local_state:
-	// freeze borrower's asset
-	txn Sender // borrower's account
-	dup
-	dup2
-	itxn_begin
-	int 0
-	itxn_field Fee
-	int afrz
-	itxn_field TypeEnum
-	//account to freeze
-	itxn_field FreezeAssetAccount
-	//asset to be frozen
-	load 1 // collateral_assetID
-	itxn_field FreezeAsset
-	int 1 //set frozen status to true
-	itxn_field FreezeAssetFrozen
-	itxn_submit // this is an atomic inner transaction
-
-	global CurrentApplicationID
-	byte "lamt"
-	app_local_get_ex
-	bz new_borrow
-	int 0
 	extract_uint64
-	load 5 // requested loan amount
-	+
 	dup
-	store 6 // loan_amount
-	byte "lamt"
-	swap
-	itob // change this value to BigEndian []uint64
-	app_local_put
-	b loan_health
-
-new_borrow:
-	// write new loan amount to borrower's local state
-	pop
-	byte "lamt"
-	load 5 // requested loan amount
 	dup
-	store 6 // loan_amount
-	itob // change this value to BigEndian []uint64
-	app_local_put
-	b loan_health
-
-loan_health:
-	// Logic that checks if its possible to take more loan
-	load 6 // loan_amount
-	txn Sender
-	global CurrentApplicationID
-	byte "camt"
-	app_local_get_ex
+	asset_params_get AssetManager // either this contract is manager or zeroAddress for manager
 	assert
-	// TODO: Iterate and see if loan is healthy
-	int 0
-	extract_uint64
-	// Oracle's price
-	int 50000000 // price of asset
-	*
-	<=
-	return
-
-create:
-	// For demo purpose
-	txn NumAccounts
-	int 1
+	dup
+	global ZeroAddress
 	==
-	bnz fund_dispenser
-
-	// Optin to USDCa
-	itxn_begin
-	int 0
-	dup
-	itxn_field Fee
-	itxn_field AssetAmount
-	int axfer
-	itxn_field TypeEnum
-	int 10458941 // USDCa
-	itxn_field XferAsset
-	global CurrentApplicationAddress // itxn sender
-	itxn_field AssetReceiver
-	itxn_submit
-
+	swap
 	global CurrentApplicationID
-	byte "jusd"
+	byte "mng"
 	app_global_get_ex
-	bnz creator_only
-	pop
-
-	// Create jUSD (I-O-U asset)
-	// Set liquidator as clawback admin for jUSD
-	itxn_begin
-	int 0
-	itxn_field Fee
-	int acfg
-	itxn_field TypeEnum
-	int 10458941 // USDCa
-	dup
-	asset_params_get AssetTotal
 	assert
-	itxn_field ConfigAssetTotal
-	asset_params_get AssetDecimals
+	app_params_get AppAddress
 	assert
-	itxn_field ConfigAssetDecimals
-	byte "jUSD"
-	itxn_field ConfigAssetUnitName
-	byte "JUSD"
-	itxn_field ConfigAssetName
-	byte "https://"
-	itxn_field ConfigAssetURL
+	==
+	||
+	assert
+	asset_params_get AssetFreeze // this contract is freeze admin
+	assert
 	global CurrentApplicationAddress
-	dup
-	dup
-	itxn_field ConfigAssetManager
-	itxn_field ConfigAssetReserve
-	itxn_field ConfigAssetFreeze
+	==
+	assert
+	asset_params_get AssetClawback // liquidator contract is clawback admin
+	assert
 	global CurrentApplicationID
+	byte "mng"
+	app_global_get_ex
+	assert
 	byte "lqt"
 	app_global_get_ex
 	assert
 	app_params_get AppAddress
 	assert
-	itxn_field ConfigAssetClawback
-	itxn_submit
-	byte "jusd"
-	itxn CreatedAssetID // assetID of IOU token created
-	app_global_put
-	b creator_only
+	==
+	callsub verify_borrower_has_collateral
+	&&
+	retsub
 
-fund_dispenser:
-	// Supply some amount for the dispenser
-	// Make sure the account has Opted in for I-O-U asset
+verify_borrower_has_collateral:
+	txn Sender
+	load 1 // xids
+	load 4 // pointer
+	extract_uint64
+	asset_holding_get AssetBalance
+	assert
+	load 2 // camt
+	load 4 // pointer
+	extract_uint64
+	callsub previous_collateral
+	+
+	>=
+	retsub
+
+previous_collateral:
+	txn Sender
+	global CurrentApplicationID
+	byte "xids"
+	app_local_get_ex
+	assert
+	dup
+	len
+	load 100 // temp pointer
+	>
+	bz popcall
+	load 100 // temp pointer
+	extract_uint64
+	load 1 // xids
+	load 4 // pointer
+	extract_uint64
+	==
+	int 8 // increment pointer
+	load 100 // temp pointer
+	+
+	store 100
+	bz previous_collateral
+	load 100 // temp pointer
+	int 8 // adjust pointer
+	-
+	store 100
+	txn Sender
+	global CurrentApplicationID
+	byte "camt"
+	app_local_get_ex
+	assert
+	load 100 // temp pointer
+	extract_uint64
+	retsub
+
+popcall:
+	pop
+	int 0
+	retsub
+
+check_loan_health:
+	txn Sender
+	global CurrentApplicationID
+	byte "xids"
+	app_local_get_ex
+	// if first time borrowing just jump to verify loan health
+	bz verify_loan_health
+	// continue and check if there is an existing loan
+	store 99
+	b loop_for_existing_loan
+
+loop_for_existing_loan:
+	// check if there is more element in xids
+	load 100 // temp pointer
+	load 99 // xids local state
+	len
+	<
+	bz verify_loan_health
+
+	// check if asset has been used as collateral before(local state)
+	load 1 // xids
+	load 4 // pointer
+	extract_uint64
+	load 99 // xids local state
+	load 100 // temp pointer
+	extract_uint64
+	==
+	// increment temp pointer
+	load 100
+	int 8 
+	+
+	store 100
+	bz loop_for_existing_loan
+	// adjust temp pointer
+	load 100
+	int 8
+	-
+	store 100
+	// fetch lamt from historical loan
+	global CurrentApplicationID
+	byte "lamt"
+	app_local_get_ex
+	assert
+	load 100 // temp pointer
+	extract_uint64
+	store 103 // lamt local state
+	// fetch camt from historical loan
+	global CurrentApplicationID
+	byte "camt"
+	app_local_get_ex
+	assert
+	load 100 // temp pointer
+	extract_uint64
+	store 102 // camt local state
+	b verify_loan_health
+
+verify_loan_health:
+	load 103 // lamt local state
+	load 3 // lamt
+	load 4 // pointer
+	extract_uint64
+	dup
+	int 3 // 3% fee included
+	*
+	int 100
+	/
+	+
+	+
+	dup
+	store 203 // new lamt change at pointer
+
+	load 102 // camt local state
+	load 2 // camt
+	load 4 // pointer
+	extract_uint64
+	+
+	dup
+	store 202 // new camt change at pointer
+
+	callsub oracle
+	*
+	int 90 // 90% of collateral
+	*
+	int 100
+	/
+	<=
+	assert
+	b configure_loan
+
+configure_loan:
+	load 203 // new lamt change at pointer
+	itob
+	txn Sender
+	global CurrentApplicationID
+	byte "lamt"
+	app_local_get_ex
+	bz new_loan_state
+	dup
+	dup
+	int 0
+	load 100 // temp pointer
+	substring3
+	cover 3
+	len
+	load 100
+	int 8
+	+
+	swap
+	substring3
+	concat
+	concat
+	store 213 // updated lamt for local state
+
+	load 202 // new camt change at pointer
+	itob
+	txn Sender
+	global CurrentApplicationID
+	byte "camt"
+	app_local_get_ex
+	assert
+	dup
+	dup
+	int 0
+	load 100 // temp pointer
+	substring3
+	cover 3
+	len
+	load 100
+	int 8
+	+
+	swap
+	substring3
+	concat
+	concat
+	store 212 // updated camt for local state
+	b update_loan_state
+
+new_loan_state:
+	// update xids local state
+	txn Sender
+	byte "xids"
+	load 1
+	itob
+	txn Sender
+	global CurrentApplicationID
+	byte "xids"
+	app_local_get_ex
+	pop
+	concat
+	app_local_put
+	// update camt local state
+	txn Sender
+	byte "camt"
+	load 2
+	itob
+	txn Sender
+	global CurrentApplicationID
+	byte "camt"
+	app_local_get_ex
+	pop
+	concat
+	app_local_put
+	// update lamt local state
+	txn Sender
+	byte "lamt"
+	load 3
+	itob
+	txn Sender
+	global CurrentApplicationID
+	byte "lamt"
+	app_local_get_ex
+	pop
+	concat
+	app_local_put
+	b lenders_allow_collateral
+
+update_loan_state:
+	// Freeze asset
 	itxn_begin
-	int 1000000000000
-	itxn_field AssetAmount
+	int 0
+	itxn_field Fee
+	int afrz
+	itxn_field TypeEnum
+	txn Sender
+	itxn_field FreezeAssetAccount
+	//asset to be frozen
+	load 1 // xids
+	load 4 // pointer
+	extract_uint64
+	itxn_field FreezeAsset
+	int 1 //set frozen status to true
+	itxn_field FreezeAssetFrozen
+	itxn_submit // this is an atomic inner transaction
+
+	// update lamt local state
+	txn Sender
+	byte "lamt"
+	load 213
+	app_local_put
+
+	// update camt local state
+	txn Sender
+	byte "camt"
+	load 212
+	app_local_put
+	b lenders_allow_collateral
+
+lenders_allow_collateral:
+	load 5 // lender
+	gtxns Sender
+	global CurrentApplicationID
+	dup2
+	byte "xids"
+	app_local_get_ex
+	assert
+	store 6 // xids of lender
+	byte "aamt"
+	app_local_get_ex
+	assert
+	store 7 // aamt of lender
+	callsub loop_allowed_asset
+	assert
+	callsub update_liquidity
+	assert
+	int 1
+	load 5 // lender
+	+
+	store 5 // lender
+	txn GroupIndex
+	load 5 // lender
+	==
+	bz lenders_allow_collateral
+	int 1
+	return
+
+loop_allowed_asset:
+// if asset is not allowed (loop reaches end) reject transaction
+	load 8 // temp lender pointer
+	load 6 // xids of lender
+	len
+	<
+	assert
+// collateral must be allowed by lender and requested loan shall be less or equal to the lender providing the loan
+	load 1 // xids
+	load 4 // pointer
+	extract_uint64
+	load 6 // xids (lender allowed assets)
+	load 8 // temp lender pointer
+	extract_uint64
+	==
+	int 8 // increment pointer
+	load 8
+	+
+	store 8
+	bz loop_allowed_asset
+	int 0
+	store 8
+	int 1
+	retsub
+
+update_liquidity:
+	load 5 // lender
+	gtxns Sender
+	byte "aamt"
+	
+	load 5 // lender
+	gtxns Sender
+	global CurrentApplicationID
+	byte "aamt"
+	app_local_get_ex
+	assert
+	load 5 // lender
+	gtxns AssetAmount
+	-
+
+	app_local_put
+
+	// Send 1:1 JUSD for lenders that sent USDCa
+	itxn_begin
+	int 0
+	itxn_field Fee
 	int axfer
 	itxn_field TypeEnum
 	global CurrentApplicationID
-	byte "jusd"
+	byte "mng"
 	app_global_get_ex
 	assert
+	byte "jusd"
+	app_global_get_ex
+	assert // jUSD
 	itxn_field XferAsset
-	txna Accounts 1
+	load 5 // lender
+	gtxns AssetAmount
+	dup
+	int 3 // 3% instant return
+	*
+	int 100
+	/
+	+
+	itxn_field AssetAmount
+	load 5 // lender
+	gtxns Sender
 	itxn_field AssetReceiver
 	itxn_submit
-	b creator_only
+	retsub
 
-handle_optin:
-// Handle OptIn
+// Handle collateral update
+update_collateral:
+	txna ApplicationArgs 1 // xids
+	txna ApplicationArgs 2 // camt
+	dup2
+	store 2
+	store 1
+	// verify both arguments match
+	len
+	swap
+	len
+	dup
+	store 0 // arg length
+	==
+	assert
+	b change_collateral
+
+change_collateral:
+	load 0 // arg length
+	load 4 // pointer
+	>
+	bz end
+	callsub verify_asset
+	assert
+	load 1 // xids
+	load 4 // pointer
+	extract_uint64
 	txn Sender
+	global CurrentApplicationID
 	byte "xids"
-	int 0
-	itob
-	app_local_put
-	int 1
-	return
-	//txn NumAppArgs
-	//int 0
-	//>
-	//txna ApplicationArgs 0
-	//byte "create"
-	//==
-	//bnz create
-	//err
+	app_local_get_ex
+	assert
+	load 8 // temp pointer
+	extract_uint64
+	==
+	int 8 // increment pointer
+	load 8 // temp pointer
+	+
+	store 8
+	bz change_collateral
+	load 8 // temp pointer
+	int 8
+	-
+	store 8 // adjust pointer
+	txn Sender
+	global CurrentApplicationID
+	byte "lamt"
+	app_local_get_ex
+	assert
+	load 8
+	extract_uint64
+	load 2 // camt
+	load 4 // pointer
+	extract_uint64
 
-lender:
+	callsub oracle
+	*
+	int 90 // 90% of collateral
+	*
+	int 100
+	/
+	<=
+	assert
+	txn Sender
+	byte "camt"
+	load 2 // camt
+	load 4 // pointer
+	extract_uint64
+	itob
+	txn Sender
+	global CurrentApplicationID
+	byte "camt"
+	app_local_get_ex
+	assert
+	dup
+	dup
+	int 0
+	load 8 // temp pointer
+	substring3
+	cover 3
+	len
+	load 8 // temp pointer
+	int 8
+	+
+	swap
+	substring3
+	concat
+	concat
+	app_local_put
+	int 8 // increment pointer
+	load 4 // pointer
+	+
+	store 4
+	b change_collateral
+
+// Handle liquidity providers
+earn:
 	txn Sender
 	dup
 	dup2
@@ -364,113 +635,236 @@ lender:
 	byte "aamt"
 	txna ApplicationArgs 2
 	btoi
-	// TODO: [indexer] check if user has specified amount, if not: set to max amount
 	app_local_put
-	byte "lsa"
-	txna ApplicationArgs 3
-	// TODO: [indexer] use this hash to find the right lsig file for signing this lender's txn by borrower
-	app_local_put
-	// input expiring time of offer
 	byte "lvr"
-	txna ApplicationArgs 4
+	txna ApplicationArgs 3
 	btoi
 	app_local_put
+	byte "lsa"
+	txna ApplicationArgs 4
+	app_local_put
 	int 1
 	return
 
-borrower_update:
-	callsub is_borrow_possible
-	return
+// Handle app creation
+create:
+	byte "mng"
+	txna Applications 1
+	app_global_put
+	b creator_only
 
-is_borrow_possible:
-	txn Sender // same as [int 0] or [txn Accounts 0]
-	dup
-	byte "xids" // as collateral_assets
-	txna ApplicationArgs 1
-	// make sure the asset Can be frozen, clawedback
-	dup
-	cover 3
-	app_local_put
+// Handle first call
+manage:
+	// Optin to USDCa
+	itxn_begin
 	int 0
-	extract_uint64 // collateral_assetID 0
 	dup
-	dup2
-	asset_params_get AssetManager
-	assert
-	global CurrentApplicationAddress
-	==
-	assert
-	asset_params_get AssetFreeze
-	assert
-	global CurrentApplicationAddress
-	==
-	assert
-	asset_params_get AssetClawback
-	assert
+	itxn_field Fee
+	itxn_field AssetAmount
+	int axfer
+	itxn_field TypeEnum
 	global CurrentApplicationID
-	byte "lqt"
+	byte "mng"
 	app_global_get_ex
 	assert
-	app_params_get AppAddress
+	byte "usdc"
+	app_global_get_ex
 	assert
-	==
-	assert
-	swap
-	byte "camt" // max_liquidate
-	txna ApplicationArgs 2
-	// check account has stated amount
-	dup
-	cover 3
-	app_local_put
-	int 0
-	extract_uint64 // collateral_amount of collateral_ID 0
-	txn Sender
-	uncover 2
-	asset_holding_get AssetBalance
-	assert
-	<=
-	retsub
+	itxn_field XferAsset
+	global CurrentApplicationAddress // itxn sender
+	itxn_field AssetReceiver
+	itxn_submit
 
-repay:
-	txn Sender
-	byte "lamt"
-	txn GroupIndex
-	int 1
-	+
-	dup
-	dup
-	gtxns AssetReceiver
-	global CurrentApplicationAddress
-	==
-	assert
-	gtxns XferAsset
-	int 10458941 // USDCa
-	==
-	assert
-	gtxns AssetAmount
-	txn Sender
-	global CurrentApplicationID
-	byte "lamt"
-	app_local_get_ex
-	assert
+	// Optin to JUSD
+	itxn_begin
 	int 0
-	extract_uint64
-	dup2
-	>=
-	// if, full loan is paid back unfreeze the asset
-	bnz unfreeze_assets
-	// else not full repay, just reduce the loan amount in local state
-	swap
-	-
+	itxn_field Fee
+	int axfer
+	itxn_field TypeEnum
+	int 0
+	itxn_field AssetAmount
+	global CurrentApplicationAddress // itxn sender
+	itxn_field AssetReceiver
+	global CurrentApplicationID
+	byte "mng"
+	app_global_get_ex
+	assert
+	byte "jusd"
+	app_global_get_ex
+	assert
+	itxn_field XferAsset
+	itxn_submit
+	b creator_only
+
+// Handle OptIn
+handle_optin:
+	txn Sender
+	byte "xids"
+	global CurrentApplicationID
+	byte "mng"
+	app_global_get_ex
+	assert
+	byte "jusd"
+	app_global_get_ex
+	assert
 	itob
 	app_local_put
 	int 1
 	return
 
-claim:
-	txn GroupIndex
-	int 1
+// Handle repay
+repay:
+	txna ApplicationArgs 1 // xids
+	txna ApplicationArgs 2 // ramt
+	dup2
+	store 2
+	store 1
+	len
+	swap
+	len
+	dup
+	store 0 // arg length
+	==
+	assert
+	load 5 // group index 0
+	gtxns AssetReceiver
+	global CurrentApplicationAddress
+	==
+	assert
+	load 5 // group index 0
+	gtxns XferAsset
+	global CurrentApplicationID
+	byte "mng"
+	app_global_get_ex
+	assert
+	byte "usdc"
+	app_global_get_ex
+	assert // USDCa
+	==
+	assert
+	load 5 // group index 0
+	gtxns AssetAmount
+	store 10 // repay amount
+	b identify_repay
+
+identify_repay:
+	txn Sender
+	global CurrentApplicationID
+	byte "xids"
+	app_local_get_ex
+	assert
+	load 4 // pointer
+	extract_uint64
+	load 1 // xids
+	load 8 // temp pointer
+	extract_uint64
+	==
+	int 8 // increment pointer
+	load 4 // pointer
 	+
+	store 4
+	bz identify_repay
+	load 4 // pointer
+	int 8 // adjust pointer
+	-
+	store 4
+	b repaid
+
+repaid:
+	txn Sender
+	global CurrentApplicationID
+	byte "lamt"
+	app_local_get_ex
+	assert
+	load 4 // pointer
+	extract_uint64
+	load 2 // ramt
+	load 8 // temp pointer
+	extract_uint64
+
+	// update remaining transfered amount
+	dup
+	load 10 // repay amount
+	swap
+	// throw error if specified ramt is more than transfered amount
+	- 
+	store 10
+
+	dup2
+	<=
+	bnz unfreeze_repaid
+	-
+	itob
+	store 3 // new_lamt
+	b configure_loan_state
+
+unfreeze_repaid:
+	// lamt <= ramt
+	int 0
+	itob
+	store 3 // new_lamt (0)
+
+	itxn_begin
+	int 0
+	itxn_field Fee
+	int afrz
+	itxn_field TypeEnum
+	load 1 // xids
+	load 8 // temp pointer
+	extract_uint64
+	itxn_field FreezeAsset
+	txn Sender
+	itxn_field FreezeAssetAccount
+	int 0 // unfreeze
+	itxn_field FreezeAssetFrozen
+	itxn_submit
+	b configure_loan_state
+
+configure_loan_state:
+	txn Sender
+	byte "lamt"
+	load 3 // new_lamt
+	txn Sender
+	global CurrentApplicationID
+	byte "lamt"
+	app_local_get_ex
+	assert
+	dup
+	dup
+	int 0
+	load 4 // pointer
+	substring3
+	cover 3
+	len
+	load 4 // pointer
+	int 8
+	+
+	swap
+	substring3
+	concat
+	concat
+	app_local_put
+	// continue to next iteration
+	int 0 // reset pointer
+	store 4 
+	load 0 // arg length
+	load 8 // temp pointer
+	int 8
+	+
+	dup
+	store 8
+	>
+	load 10 // repay amount
+	int 0
+	>
+	&&
+	bnz repaid
+	int 1
+	return
+
+// Handle claim
+claim:
+	load 5 // group index 0
 	dup
 	dup
 	gtxns AssetReceiver
@@ -479,26 +873,36 @@ claim:
 	assert
 	gtxns XferAsset
 	global CurrentApplicationID
+	byte "mng"
+	app_global_get_ex
+	assert
 	byte "jusd"
 	app_global_get_ex
-	assert // jUSD
+	assert // JUSD
 	==
 	assert
+
 	itxn_begin
-	gtxns AssetAmount
-	dup
-	itxn_field AssetAmount
 	int 0
 	itxn_field Fee
 	int axfer
 	itxn_field TypeEnum
-	//Asset ID must be in the assets array
-	int 10458941 // USDCa
+	gtxns AssetAmount
+	dup
+	itxn_field AssetAmount
+	global CurrentApplicationID
+	byte "mng"
+	app_global_get_ex
+	assert
+	byte "usdc"
+	app_global_get_ex
+	assert // USDCa
 	itxn_field XferAsset
 	txn Sender
 	dup
 	itxn_field AssetReceiver
 	itxn_submit
+
 	global CurrentApplicationID
 	byte "aamt"
 	app_local_get_ex
@@ -510,13 +914,13 @@ reset_loan_amount:
 	+
 	txn Sender
 	byte "aamt"
-	dig 2
+	uncover 2
 	app_local_put
 	int 1
 	return
 
-handle_closeout:
 // Handle CloseOut
+handle_closeout:
 	txn Sender
 	global CurrentApplicationID
 	dup2
@@ -526,78 +930,64 @@ handle_closeout:
 	pop
 	byte "lamt"
 	app_local_get_ex
-	bz unfreeze_assets
+	bz closeout_app
+	store 3 // lamt
+	b check_no_loan
+
+check_no_loan:
+	load 4 // pointer
+	load 3 // lamt
+	len
+	>
+	bnz closeout_app
+	load 3 // lamt
+	load 4 // pointer
+	extract_uint64
+	int 0
+	==
+	bnz unfreeze_asset
 	// if there is still a borrowed amount, cannot close out
 	err
 
-unfreeze_assets:
+unfreeze_asset:
 	txn Sender
-	dup
 	global CurrentApplicationID
 	byte "xids"
 	app_local_get_ex
 	assert
-	dup
-	cover 2
 	load 4 // pointer
 	extract_uint64
-	dup2
-	asset_holding_get AssetFrozen
-	pop
-	dig 1
+	dup
+	dup
 	asset_params_get AssetFreeze
-	pop
+	assert
 	global CurrentApplicationAddress
 	==
+	txn Sender
+	uncover 2
+	asset_holding_get AssetFrozen
+	int 1
+	==
 	&&
-	int 8
+	int 8 // increment pointer
 	load 4 // pointer
 	+
 	store 4
-	dig 3
-	len
-	load 4
-	>
-	&&
-	bnz unfreeze_assets
-	//top of stack should be account to unfreeze
+	bz check_no_loan
+
 	itxn_begin
 	int 0
 	itxn_field Fee
 	int afrz
 	itxn_field TypeEnum
-	//asset to unfreeze
+	// xaid: asset to unfreeze
 	itxn_field FreezeAsset
-	//account to unfreeze
+	txn Sender
 	itxn_field FreezeAssetAccount
 	int 0 //set frozen status to false
 	itxn_field FreezeAssetFrozen
 	itxn_submit
-	// loop to unfreeze next asset
-	// check if at end of byte (collateral_assets[]uint64)
-	len
-	load 4
-	>
-	bnz unfreeze_assets
-	int 0
-	store 4 // reset pointer
-	txn Sender
-	byte "lamt" // loan amount
-	app_local_del
-	int 1
-	return
-
-liquidated:
-	txn Sender
-	global CurrentApplicationID
-	byte "lqt"
-	app_global_get_ex
-	assert
-	app_params_get AppAddress
-	assert
-	==
-	bnz unfreeze_assets
-	err
+	b check_no_loan
 
 closeout_app:
 	txn Sender
@@ -619,6 +1009,11 @@ closeout_app:
 	int 1
 	return
 
+// function to fetch price from oracle
+oracle:
+	int 50000000  // oracle price
+	retsub
+
 // Allowing updating or deleting the app. For creator only
 creator_only:
 	global CreatorAddress
@@ -626,28 +1021,6 @@ creator_only:
 	==
 	return
 
-// Return Asset manager
-return_asset:
-	itxn_begin
-	int 0
-	itxn_field Fee
-	int acfg
-	itxn_field TypeEnum
-	txn Assets 0
-	dup
-	itxn_field ConfigAsset
-	asset_params_get AssetCreator
-	assert
-	dup
-	txn Sender
-	==
-	assert
-	dup
-	dup2
-	itxn_field ConfigAssetManager
-	itxn_field ConfigAssetReserve
-	itxn_field ConfigAssetFreeze
-	itxn_field ConfigAssetClawback
-	itxn_submit
+end:
 	int 1
 	return

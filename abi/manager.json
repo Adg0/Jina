@@ -1,0 +1,67 @@
+{
+    "name":"manager",
+    "networks":{
+        "default":{ 
+            "appID": 2 
+        }
+    },
+    "methods":[
+        {
+            "name":"create",
+            "desc":"creates the manager app",
+            "args":[ { "type":"asset", "name":"USDC", "desc":"USDC asset ID" } ],
+            "returns": {"type":"void"}
+        },
+        {
+            "name":"fund",
+            "desc":"send a million jusd to an address",
+            "args":[
+				{ "type":"account", "name":"receiver" },
+				{ "type":"asset", "name":"jusd" }
+				],
+            "returns": {"type":"void"}
+        },
+        {
+            "name":"manage",
+            "desc":"create jina borrow lend app and liqudator app",
+            "args":[ 
+				{ "type":"asset", "name":"USDC" },
+				{ "type":"byte[]", "name":"lqtApproval" },
+				{ "type":"byte[]", "name":"lqtClear" },
+				{ "type":"byte[]", "name":"jinaApproval" },
+				{ "type":"byte[]", "name":"jinaClear" } ],
+            "returns": {"type":"uint64[]"}
+        },
+        {
+            "name":"config",
+            "desc":"configure apps to optin to assets",
+            "args":[
+				{ "type":"application", "name":"lqtApp" },
+				{ "type":"application", "name":"jinaApp" },
+				{ "type":"asset", "name":"usdc" },
+				{ "type":"asset", "name":"jusd" }
+				],
+            "returns": {"type":"void"}
+        },
+        {
+            "name":"update_child_app",
+            "desc":"configure apps to optin to assets",
+            "args":[
+				{ "type":"application", "name":"appID" },
+				{ "type":"byte[]", "name":"approval" },
+				{ "type":"byte[]", "name":"clearState" }
+				],
+            "returns": {"type":"void"}
+        },
+        {
+            "name":"asset_config",
+            "desc":"configure asset freeze and clawback admins",
+            "args":[
+				{ "type":"application", "name":"jinaID" },
+				{ "type":"application", "name":"lqtID" },
+				{ "type":"asset", "name":"assetID" }
+				],
+            "returns": {"type":"void"}
+        }
+    ]
+}

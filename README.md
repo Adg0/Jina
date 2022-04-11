@@ -126,4 +126,4 @@ Liquidator contract reads current price of NFT from oracle and if loan is more t
 
 # Contact
 Discord @1egen#0803
-
+Discord @3spear#9556

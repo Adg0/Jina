@@ -1,0 +1,573 @@
+{
+"error": "",
+"protocol-version": "future",
+"txns": [
+{
+"app-call-messages": [
+"ApprovalProgram",
+"PASS"
+],
+"app-call-trace": [
+{
+"line": 1,
+"pc": 1,
+"stack": []
+},
+{
+"line": 2,
+"pc": 8,
+"stack": []
+},
+{
+"line": 3,
+"pc": 52,
+"stack": []
+},
+{
+"line": 4,
+"pc": 54,
+"stack": [
+{
+"bytes": "",
+"type": 2,
+"uint": 0
+}
+]
+},
+{
+"line": 5,
+"pc": 55,
+"stack": [
+{
+"bytes": "",
+"type": 2,
+"uint": 0
+},
+{
+"bytes": "",
+"type": 2,
+"uint": 0
+}
+]
+},
+{
+"line": 6,
+"pc": 56,
+"stack": [
+{
+"bytes": "",
+"type": 2,
+"uint": 1
+}
+]
+},
+{
+"line": 17,
+"pc": 75,
+"stack": []
+},
+{
+"line": 18,
+"pc": 78,
+"stack": [
+{
+"bytes": "JA0vZw==",
+"type": 1,
+"uint": 0
+}
+]
+},
+{
+"line": 19,
+"pc": 84,
+"stack": [
+{
+"bytes": "JA0vZw==",
+"type": 1,
+"uint": 0
+},
+{
+"bytes": "Xi1fYg==",
+"type": 1,
+"uint": 0
+}
+]
+},
+{
+"line": 20,
+"pc": 85,
+"stack": [
+{
+"bytes": "",
+"type": 2,
+"uint": 0
+}
+]
+},
+{
+"line": 21,
+"pc": 88,
+"stack": []
+},
+{
+"line": 22,
+"pc": 91,
+"stack": [
+{
+"bytes": "JA0vZw==",
+"type": 1,
+"uint": 0
+}
+]
+},
+{
+"line": 23,
+"pc": 97,
+"stack": [
+{
+"bytes": "JA0vZw==",
+"type": 1,
+"uint": 0
+},
+{
+"bytes": "JA0vZw==",
+"type": 1,
+"uint": 0
+}
+]
+},
+{
+"line": 24,
+"pc": 98,
+"stack": [
+{
+"bytes": "",
+"type": 2,
+"uint": 1
+}
+]
+},
+{
+"line": 69,
+"pc": 189,
+"stack": []
+},
+{
+"line": 70,
+"pc": 190,
+"stack": [
+{
+"bytes": "dXNkYw==",
+"type": 1,
+"uint": 0
+}
+]
+},
+{
+"line": 71,
+"pc": 193,
+"stack": [
+{
+"bytes": "dXNkYw==",
+"type": 1,
+"uint": 0
+},
+{
+"bytes": "AAAAAAAAAAE=",
+"type": 1,
+"uint": 0
+}
+]
+},
+{
+"line": 72,
+"pc": 194,
+"stack": [
+{
+"bytes": "dXNkYw==",
+"type": 1,
+"uint": 0
+},
+{
+"bytes": "",
+"type": 2,
+"uint": 1
+}
+]
+},
+{
+"line": 73,
+"pc": 195,
+"stack": []
+},
+{
+"line": 296,
+"pc": 551,
+"stack": []
+},
+{
+"line": 297,
+"pc": 553,
+"stack": [
+{
+"bytes": "JEJhliI6OmBPkXAHReu4vqf9VcN1xc4JmWebUCF74vQ=",
+"type": 1,
+"uint": 0
+}
+]
+},
+{
+"line": 298,
+"pc": 555,
+"stack": [
+{
+"bytes": "JEJhliI6OmBPkXAHReu4vqf9VcN1xc4JmWebUCF74vQ=",
+"type": 1,
+"uint": 0
+},
+{
+"bytes": "JEJhliI6OmBPkXAHReu4vqf9VcN1xc4JmWebUCF74vQ=",
+"type": 1,
+"uint": 0
+}
+]
+},
+{
+"line": 299,
+"pc": 556,
+"stack": [
+{
+"bytes": "",
+"type": 2,
+"uint": 1
+}
+]
+},
+{
+"line": 300,
+"pc": 557,
+"stack": [
+{
+"bytes": "",
+"type": 2,
+"uint": 1
+}
+]
+}
+],
+"cost": 23,
+"disassembly": [
+"#pragma version 6",
+"intcblock 0 4 6 3 1",
+"bytecblock 0x6a757364 0x6c7174 0x6a696e61 0x75736463 0x4a555344 0x68747470733a2f2f 0x612b1b09 0x4a4e41",
+"txn OnCompletion",
+"intc_0 // 0",
+"==",
+"bnz label1",
+"txn OnCompletion",
+"intc_1 // 4",
+"==",
+"bnz label2",
+"txn OnCompletion",
+"pushint 5",
+"==",
+"bnz label2",
+"err",
+"label1:",
+"txna ApplicationArgs 0",
+"pushbytes 0x5e2d5f62 // \"^-_b\"",
+"==",
+"bnz label3",
+"txna ApplicationArgs 0",
+"pushbytes 0x240d2f67 // 0x240d2f67",
+"==",
+"bnz label4",
+"txna ApplicationArgs 0",
+"pushbytes 0xe28b9ddf // 0xe28b9ddf",
+"==",
+"bnz label5",
+"txna ApplicationArgs 0",
+"pushbytes 0x72665835 // \"rfX5\"",
+"==",
+"bnz label6",
+"err",
+"label6:",
+"itxn_begin",
+"intc_0 // 0",
+"itxn_field Fee",
+"intc_2 // 6",
+"itxn_field TypeEnum",
+"global CurrentApplicationID",
+"bytec_1 // \"lqt\"",
+"app_global_get_ex",
+"assert",
+"itxn_field ApplicationID",
+"intc_0 // 0",
+"itxn_field OnCompletion",
+"pushbytes 0x983acdf0 // 0x983acdf0",
+"txna ApplicationArgs 1",
+"btoi",
+"txn Sender",
+"txna ApplicationArgs 2",
+"btoi",
+"txna ApplicationArgs 3",
+"itxn_field ApplicationArgs",
+"txna ApplicationArgs 2",
+"btoi",
+"itxn_field Assets",
+"global CurrentApplicationID",
+"global CurrentApplicationID",
+"bytec_2 // \"jina\"",
+"app_global_get_ex",
+"assert",
+"itxn_field Applications",
+"txn Sender",
+"txna ApplicationArgs 3",
+"itxn_field Accounts",
+"itxn_submit",
+"label4:",
+"bytec_3 // \"usdc\"",
+"txna ApplicationArgs 1",
+"btoi",
+"app_global_put",
+"b label2",
+"label5:",
+"callsub label7",
+"callsub label8",
+"callsub label9",
+"callsub label10",
+"b label2",
+"label7:",
+"itxn_begin",
+"intc_0 // 0",
+"itxn_field Fee",
+"intc_3 // 3",
+"itxn_field TypeEnum",
+"global CurrentApplicationID",
+"bytec_3 // \"usdc\"",
+"app_global_get_ex",
+"assert",
+"dup",
+"asset_params_get AssetTotal",
+"assert",
+"itxn_field ConfigAssetTotal",
+"asset_params_get AssetDecimals",
+"assert",
+"itxn_field ConfigAssetDecimals",
+"bytec 4 // \"JUSD\"",
+"itxn_field ConfigAssetUnitName",
+"bytec 4 // \"JUSD\"",
+"itxn_field ConfigAssetName",
+"bytec 5 // \"https://\"",
+"itxn_field ConfigAssetURL",
+"global CurrentApplicationAddress",
+"dup",
+"dup2",
+"itxn_field ConfigAssetManager",
+"itxn_field ConfigAssetReserve",
+"itxn_field ConfigAssetFreeze",
+"itxn_field ConfigAssetClawback",
+"itxn_submit",
+"bytec_0 // \"jusd\"",
+"itxn CreatedAssetID",
+"app_global_put",
+"retsub",
+"label8:",
+"itxn_begin",
+"intc_0 // 0",
+"itxn_field Fee",
+"intc_2 // 6",
+"itxn_field TypeEnum",
+"intc 4 // 1",
+"itxn_field GlobalNumUint",
+"intc_0 // 0",
+"itxn_field GlobalNumByteSlice",
+"pushint 2",
+"itxn_field LocalNumUint",
+"intc_1 // 4",
+"itxn_field LocalNumByteSlice",
+"intc_0 // 0",
+"itxn_field OnCompletion",
+"bytec 6 // 0x612b1b09",
+"itxn_field ApplicationArgs",
+"global CurrentApplicationID",
+"bytec_0 // \"jusd\"",
+"app_global_get_ex",
+"assert",
+"global CurrentApplicationID",
+"bytec_3 // \"usdc\"",
+"app_global_get_ex",
+"assert",
+"itxn_field Assets",
+"global CurrentApplicationID",
+"itxn_field Applications",
+"txna ApplicationArgs 3",
+"itxn_field ApprovalProgram",
+"txna ApplicationArgs 4",
+"itxn_field ClearStateProgram",
+"itxn_submit",
+"bytec_2 // \"jina\"",
+"itxn CreatedApplicationID",
+"app_global_put",
+"retsub",
+"label9:",
+"itxn_begin",
+"intc_0 // 0",
+"itxn_field Fee",
+"intc_2 // 6",
+"itxn_field TypeEnum",
+"intc 4 // 1",
+"itxn_field GlobalNumUint",
+"intc_0 // 0",
+"dup",
+"dup",
+"itxn_field GlobalNumByteSlice",
+"itxn_field LocalNumUint",
+"itxn_field LocalNumByteSlice",
+"intc_0 // 0",
+"itxn_field OnCompletion",
+"bytec 6 // 0x612b1b09",
+"itxn_field ApplicationArgs",
+"global CurrentApplicationID",
+"bytec_0 // \"jusd\"",
+"app_global_get_ex",
+"assert",
+"global CurrentApplicationID",
+"bytec_3 // \"usdc\"",
+"app_global_get_ex",
+"assert",
+"itxn_field Assets",
+"global CurrentApplicationID",
+"itxn_field Applications",
+"txna ApplicationArgs 1",
+"itxn_field ApprovalProgram",
+"txna ApplicationArgs 2",
+"itxn_field ClearStateProgram",
+"itxn_submit",
+"bytec_1 // \"lqt\"",
+"itxn CreatedApplicationID",
+"app_global_put",
+"retsub",
+"label10:",
+"itxn_begin",
+"intc_0 // 0",
+"itxn_field Fee",
+"intc_3 // 3",
+"itxn_field TypeEnum",
+"global CurrentApplicationID",
+"pushint 1000",
+"itxn_field ConfigAssetTotal",
+"intc_0 // 0",
+"itxn_field ConfigAssetDecimals",
+"bytec 7 // \"JNA\"",
+"itxn_field ConfigAssetUnitName",
+"bytec 7 // \"JNA\"",
+"itxn_field ConfigAssetName",
+"bytec 5 // \"https://\"",
+"itxn_field ConfigAssetURL",
+"global CurrentApplicationAddress",
+"dup",
+"itxn_field ConfigAssetManager",
+"itxn_field ConfigAssetReserve",
+"global CurrentApplicationID",
+"bytec_2 // \"jina\"",
+"app_global_get_ex",
+"assert",
+"app_params_get AppAddress",
+"assert",
+"itxn_field ConfigAssetFreeze",
+"global CurrentApplicationID",
+"bytec_1 // \"lqt\"",
+"app_global_get_ex",
+"assert",
+"app_params_get AppAddress",
+"assert",
+"itxn_field ConfigAssetClawback",
+"itxn_submit",
+"pushbytes 0x6a6e61 // \"jna\"",
+"itxn CreatedAssetID",
+"app_global_put",
+"retsub",
+"label11:",
+"itxn_begin",
+"intc_0 // 0",
+"itxn_field Fee",
+"intc_3 // 3",
+"itxn_field TypeEnum",
+"global CurrentApplicationAddress",
+"itxn_field ConfigAssetManager",
+"global CurrentApplicationID",
+"bytec_2 // \"jina\"",
+"app_global_get_ex",
+"assert",
+"app_params_get AppAddress",
+"assert",
+"dup",
+"itxn_field ConfigAssetReserve",
+"itxn_field ConfigAssetFreeze",
+"global CurrentApplicationID",
+"bytec_1 // \"lqt\"",
+"app_global_get_ex",
+"assert",
+"app_params_get AppAddress",
+"assert",
+"itxn_field ConfigAssetClawback",
+"itxn_next",
+"intc_0 // 0",
+"itxn_field Fee",
+"intc_1 // 4",
+"itxn_field TypeEnum",
+"global CurrentApplicationAddress",
+"global CurrentApplicationID",
+"bytec_0 // \"jusd\"",
+"app_global_get_ex",
+"assert",
+"asset_holding_get AssetBalance",
+"assert",
+"itxn_field AssetAmount",
+"global CurrentApplicationID",
+"bytec_0 // \"jusd\"",
+"app_global_get_ex",
+"assert",
+"asset_params_get AssetReserve",
+"assert",
+"itxn_field AssetReceiver",
+"itxn_submit",
+"retsub",
+"label3:",
+"itxn_begin",
+"intc_0 // 0",
+"itxn_field Fee",
+"intc_1 // 4",
+"itxn_field TypeEnum",
+"pushint 1000000000000",
+"itxn_field AssetAmount",
+"global CurrentApplicationID",
+"bytec_0 // \"jusd\"",
+"app_global_get_ex",
+"assert",
+"itxn_field XferAsset",
+"txna Accounts 1",
+"itxn_field AssetReceiver",
+"itxn_submit",
+"callsub label11",
+"b label2",
+"label2:",
+"global CreatorAddress",
+"txn Sender",
+"==",
+"return",
+""
+],
+"global-delta": [
+{
+"key": "dXNkYw==",
+"value": {
+"action": 2,
+"uint": 1
+}
+}
+]
+}
+]
+}

@@ -22,36 +22,40 @@ assert
 txn Fee
 int 0
 ==
+assert
 
 // check if the txn is for lending USDCa
 txn XferAsset
 arg_0
 btoi
 ==
+assert
 
 // check if amount requested is less than or equal to agreed USDCa lend
 txn AssetAmount
 arg_1
 btoi
 <=
+assert
 
 // check if aggreement is not-expired
 txn LastValid
 arg_2
 btoi
 <=
+assert
 
 // check if jina contract is called in this group
-gtxn 0 TypeEnum
+global GroupSize
+int 1
+-
+dup
+gtxns TypeEnum
 int appl
 ==
-gtxn 0 ApplicationID
+assert
+gtxns ApplicationID
 arg_3
 btoi // jina smart contract's ID
 ==
-&&
-&&
-&&
-&&
-&&
 return

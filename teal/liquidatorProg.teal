@@ -15,156 +15,340 @@ int DeleteApplication
 ==
 bnz creator_only
 
-txn OnCompletion
-int OptIn
-==
-bnz on_create
-
 // Unexpected OnCompletion value. Should be unreachable.
 err
 
+// Handle NoOp
 handle_noop:
-	txna Accounts 1 // address being liquidated (borrower address)
+	// Handle liquidate
+	// (liquidatee, xaid, reciever)
+	txna ApplicationArgs 0
+	method "liquidate(axfer,address,uint64,address)void"
+	==
+	bnz liquidate
+
+	// Handle transfer excess asset
+	// (sender, xaid, claw_amt, reciever)
+	txna ApplicationArgs 0
+	method "send(address,uint64,uint64,address)void"
+	==
+	bnz send
+
+	// Handle manage app
+	// (mng,jusd,usdc) as foreign app and foreign assets
+	txna ApplicationArgs 0
+	method "manage(application,asset,asset)void"
+	==
+	bnz manage
+
+	// Handle create app
+	// (mng,jusd,usdc) as foreign app and foreign assets
+	txna ApplicationArgs 0
+	method "create(application)void"
+	==
+	bnz create
+
+// TODO: monetization feature
+	// Handle redeem
+//	txna ApplicationArgs 0
+//	method "redeem(void)void"
+//	==
+//	bnz redeem
+
+	// no other cases
+	err
+
+// Handle liquidate
+liquidate:
+	txna ApplicationArgs 1 // liquidatee
+	txna ApplicationArgs 2 // xaid
+	btoi
+	txna ApplicationArgs 3 // clawback reciever
+	store 3 // clawback receiver
+	store 2 // xaid
+	store 1 // liquidatee
+	// check loan health
+	callsub verify_call
+	callsub check_loan_health
+	// clawback trigger
+	bnz clawback_asset
+	err
+
+verify_call:
+	gtxn 0 AssetReceiver
+	global CurrentApplicationAddress
+	==
+	assert
+	gtxn 0 XferAsset
 	global CurrentApplicationID
+	byte "mng"
+	app_global_get_ex
+	assert
+	byte "usdc"
+	app_global_get_ex
+	assert
+	==
+	gtxn 0 XferAsset
+	global CurrentApplicationID
+	byte "mng"
+	app_global_get_ex
+	assert
+	byte "jusd"
+	app_global_get_ex
+	assert
+	==
+	||
+	bnz fetch_asset
+	err
+
+fetch_asset:
+	load 1 // liquidatee
+	global CurrentApplicationID
+	byte "mng"
+	app_global_get_ex
+	assert
 	byte "jina"
 	app_global_get_ex
-	assert // Jina applicationID
-	dup2
-	dup2
+	assert
 	byte "xids"
 	app_local_get_ex
 	assert
-	store 0
+	load 4 // pointer
+	dup2
+	swap
+	len
+	<
+	bz reject
+	extract_uint64
+	load 2 // xaid
+	==
+	int 8 // increment pointer
+	load 4
+	+
+	store 4
+	bnz fetch_asset
+	load 4 // pointer
+	int 8 // adjust pointer
+	-
+	store 4
+	retsub
+
+check_loan_health:
+	load 1 // liquidatee
+	global CurrentApplicationID
+	byte "mng"
+	app_global_get_ex
+	assert
+	byte "jina"
+	app_global_get_ex
+	assert
+	dup2
+	byte "lamt"
+	app_local_get_ex
+	assert
+	load 4 // pointer
+	extract_uint64
+	dup
+	dup
+	callsub forward_payment
+	// liquidation paid is atleast 5% more than loan taken
+	int 105
+	*
+	int 100
+	/
+	gtxn 0 AssetAmount
+	<=
+	assert
+	cover 2
 
 	byte "camt"
 	app_local_get_ex
 	assert
-	store 1
-
-	byte "lamt"
-	app_local_get_ex
-	assert
-	store 2
-
-	b check_loan_health
-
-//check if price of collateral is above 90% of loan
-check_loan_health:
-	load 2 // loan_amount []uint64
-	int 0
-	extract_uint64 // loan_amount of the collateral_assetID 0
-	// TODO: oracle feature
-	// using fetchMarketPrice[oracle_appID, collateral_assetID]price
-	// app_get_price
-	int 49000000 // demo-price of the collateral_assetID 0
-	load 1 // collateral_amount []uint64
-	int 0
-	extract_uint64 // collateral_amount of the collateral_assetID 0
-	// stack: [loanAmount, oracle_price, assetAmount]
+	load 4 // pointer
+	extract_uint64
+	dup
+	store 0 // clawback amount
+	// oracle call
+	callsub oracle
 	*
-	// stack: [loanAmount, oracle_price*asssetAmount]
-	dup
-	store 5 // collateral price
-	int 9
-	*
-	int 10
-	/
-	// stack: [loanAmount, (oracle_price*assetAmount)90%]
-	> // is loanAmount > 90% of collateral ?
-	// if loan is below 90%, the asset cannot be liquidated. Exit
-	bz cannot_liqidate
-	// if loan is above 90%, then continue liquidation
-
-	// sell the collateral_assetID if its price is 5% more than loan locked. (a 10% penality is incured during liquidation: 5% for liquidator and 5% as insurance for jina)
-	txn GroupIndex
-	int 1
-	+
-	dup
-	dup
-	gtxns XferAsset // supplied USDCa in group txn
-	int 10458941 // USDCa
-	==
-	assert
-	global CurrentApplicationID
-	byte "jina"
-	app_global_get_ex
-	assert // Jina applicationID
-	app_params_get AppAddress
-	assert
-	swap
-	gtxns AssetReceiver
-	==
-	assert
-	gtxns AssetAmount // supplied USDCa in group txn
-	load 5 // collateral price
-	int 95
+	int 90
 	*
 	int 100
 	/
-	>= // USDCa supplied must be atleast 95% of collateral asset
-	bnz clawback
-	err
+	>
+	retsub
 
-clawback:
-	// clawback collateral asset
+forward_payment:
 	itxn_begin
 	int 0
 	itxn_field Fee
 	int axfer
 	itxn_field TypeEnum
-	txna Accounts 2 // address that will recieve the liquidation
-	itxn_field AssetReceiver
-
-	callsub is_asset_collateral
-	txna Assets 0
-	itxn_field XferAsset
-
-	txna Accounts 1 // address being liquidated (borrower address)
-	itxn_field AssetSender
-
-	load 1 // collateral_amount []uint64
-	load 4 // pointer
-	extract_uint64 // assetAmount that will be clawed back
+	// lamt
 	itxn_field AssetAmount
-	itxn_submit
-
-	// TODO: Make app call to modify the loan state
-	itxn_begin
-	int 0
-	itxn_field Fee
-	int appl
-	itxn_field TypeEnum
 	global CurrentApplicationID
+	byte "mng"
+	app_global_get_ex
+	assert
 	byte "jina"
 	app_global_get_ex
 	assert
-	itxn_field ApplicationID
-	byte "liquidated"
-	itxn_field ApplicationArgs
-	txna Accounts 1
-	itxn_field Accounts
-	int NoOp
-	itxn_field OnCompletion
+	app_params_get AppAddress
+	assert
+	itxn_field AssetReceiver
+	gtxn 0 XferAsset
+	itxn_field XferAsset
 	itxn_submit
-	
+	retsub
+
+// Handle send
+send:
+	txna ApplicationArgs 1 // claw amount
+	txna ApplicationArgs 2 // sender
+	txna ApplicationArgs 3 // xaid
+	btoi
+	txna ApplicationArgs 4 // reciever of clawback
+	store 3 // reciever of clawback
+	store 2 // xaid
+	store 1 // liquidatee
+	store 0 // clawback amount
+	// verify the call is from manager account
+	global CurrentApplicationID
+	byte "mng"
+	app_global_get_ex
+	assert
+	app_params_get AppAddress
+	assert
+	txn Sender
+	==
+	assert
+	// verify asset amount is not excess of uncollateralized amount
+	callsub verify_clawback
+	// clawback trigger
+	bnz clawback_asset
+	err
+
+verify_clawback:
+	// fetch appropriate collateral field
+	load 2 // xaid
+	load 1 // sender(liquidatee)
+	global CurrentApplicationID
+	byte "mng"
+	app_global_get_ex
+	assert
+	byte "jina"
+	app_global_get_ex
+	assert
+	byte "xids"
+	app_local_get_ex
+	// if sender isn't opted into borrowing, jump to sending asset
+	bz clawback_asset
+	load 4 // pointer
+	extract_uint64
+	==
+	int 8 // increment pointer
+	load 4 
+	+
+	store 4
+	bz verify_clawback
+	load 4 // pointer
+	int 8 // adjust pointer
+	-
+	store 4
+	// verify sender asset balance can cover collateral
+	load 1 // sender(liquidatee)
+	load 2 // xaid
+	asset_holding_get AssetBalance
+	assert
+	load 0 // clawback amount
+	- // AssetBalance - clawback amount
+	load 1 // sender(liquidatee)
+	global CurrentApplicationID
+	byte "mng"
+	app_global_get_ex
+	assert
+	byte "jina"
+	app_global_get_ex
+	assert
+	byte "camt"
+	app_local_get_ex
+	assert
+	load 4 // pointer
+	extract_uint64 // camt
+	>= // (AssetBalance - Clawback) >= camt
+	retsub
+
+clawback_asset:
+	itxn_begin
+	int 0
+	itxn_field Fee
+	int axfer
+	itxn_field TypeEnum
+	load 0 // clawback amount
+	itxn_field AssetAmount
+	load 1 // liquidatee
+	itxn_field AssetSender
+	load 3 // clawback reciever
+	itxn_field AssetReceiver
+	load 2 // xaid
+	itxn_field XferAsset
+	itxn_submit
 	int 1
 	return
 
-is_asset_collateral:
-	txna Assets 0
-	load 0 // collateral_asset []uint64
-	load 4 // pointer
-	extract_uint64 // assetID that will be clawed back
-	==
-	load 4 // pointer
-	int 8 // increment by 8; since it is a uint64
-	+
-	store 4 // update pointer to point to next uint64 in []byte
-	bz is_asset_collateral
-	load 4
-	int 8 // decrement by 8; correcting the pointer head
-	-
-	store 4 // pointer
+// Handle create
+create:
+	byte "mng"
+	txna Applications 1
+	app_global_put
+	b creator_only
+
+// Handle first call manager
+manage:
+	// Optin to USDCa
+	itxn_begin
+	int 0
+	itxn_field Fee
+	int axfer
+	itxn_field TypeEnum
+	int 0
+	itxn_field AssetAmount
+	global CurrentApplicationAddress // itxn sender
+	itxn_field AssetReceiver
+	global CurrentApplicationID
+	byte "mng"
+	app_global_get_ex
+	assert
+	byte "usdc"
+	app_global_get_ex
+	assert
+	itxn_field XferAsset
+	itxn_submit
+
+	// Optin to JUSD
+	itxn_begin
+	int 0
+	itxn_field Fee
+	int axfer
+	itxn_field TypeEnum
+	int 0
+	itxn_field AssetAmount
+	global CurrentApplicationAddress // itxn sender
+	itxn_field AssetReceiver
+	global CurrentApplicationID
+	byte "mng"
+	app_global_get_ex
+	assert
+	byte "jusd"
+	app_global_get_ex
+	assert
+	itxn_field XferAsset
+	itxn_submit
+	b creator_only
+
+// function to fetch price from oracle
+oracle:
+	int 49000000  // oracle price
 	retsub
 
 // Allowing updating or deleting the app. For creator only
@@ -172,44 +356,7 @@ creator_only:
 	global CreatorAddress
 	txn Sender
 	==
-	assert
-	txn NumAppArgs
-	int 2
-	>=
-	bnz update_globals
-	int 1
 	return
 
-update_globals:
-	global CurrentApplicationID
-	byte "jina" // jina applicationID
-	app_global_get_ex
-	assert
-	txna ApplicationArgs 0
-	btoi
-	==
-	global CurrentApplicationID
-	byte "orc" // oracle applicationID
-	app_global_get_ex
-	assert
-	txna ApplicationArgs 0
-	btoi
-	==
-	&&
-	bz on_create
-	int 1
-	return
-	
-on_create:
-	byte "jina" // jina applicationID
-	txna ApplicationArgs 0
-	btoi
-	app_global_put
-	byte "orc" // oracle applicationID
-	txna ApplicationArgs 1
-	btoi
-	app_global_put
-	b creator_only
-
-cannot_liqidate:
+reject:
 	err

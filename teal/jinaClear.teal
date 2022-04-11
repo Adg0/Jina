@@ -1,0 +1,27 @@
+#pragma version 6
+txn Sender
+global CurrentApplicationID
+byte "camt"
+app_local_get_ex
+bz delete_local_states
+err
+
+delete_local_states:
+	txn Sender
+	dup
+	dup2
+	dup2
+	byte "xids" // participation assets
+	app_local_del
+	byte "aamt" // allowed borrow amount
+	app_local_del
+	byte "camt" // collateral amount
+	app_local_del
+	byte "lamt" // loan amount
+	app_local_del
+	byte "lvr" // last valid round of lending offer
+	app_local_del
+	byte "lsa" // hash identifier of logic sig account
+	app_local_del
+	int 1
+	return

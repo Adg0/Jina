@@ -1,4 +1,4 @@
-module github.com/Adg0/Jina
+module github.com/Adg0/Jina/cmd
 
 go 1.17
 

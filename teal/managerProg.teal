@@ -1,0 +1,560 @@
+#pragma version 6
+//**************************************************************************************************
+// File             : manager.teal
+// Author           : DeFi4NFT Software Development Team
+// Version          : 0.0.1
+// Date             : 10-Apr-22
+// Brief            : NFT-Fi contracts manager, controls freeze and clawback of borrowable assets
+// Maintainer	    : Kaleb
+//
+//**************************************************************************************************
+// Revision History
+//**************************************************************************************************
+// 
+// 
+//**************************************************************************************************
+// Constraints
+//**************************************************************************************************
+//
+//
+//**************************************************************************************************
+// Requirements
+//**************************************************************************************************
+//	A brief description on what this brings to the ecosystem
+//
+//
+//**************************************************************************************************
+// Implementation Description
+//**************************************************************************************************
+//	A brief description on the contracts overall functionality (dot point formation)
+//
+//
+//**************************************************************************************************
+// To Do Items
+//**************************************************************************************************
+// 1. Add {unfreeze call}
+//
+//**************************************************************************************************
+// Scratch Space Index
+//**************************************************************************************************
+//
+// [9]    Stores return log values
+//
+//
+//**************************************************************************************************
+// Initialisation + Configuration Functions
+//**************************************************************************************************
+// Call create if applicationID is zero
+int 0                   // intx
+txn ApplicationID       // intx ApplicationID
+==                      // 1||0
+bnz create
+
+// Call noop if OnCompletion = NoOp
+txn OnCompletion		// NoOp OnCompletion
+int NoOp				// NoOp
+==                      // 1||0
+bnz noop
+
+// Call update if OnCompletion = UpdateApplication
+txn OnCompletion		// UpdateApplication OnCompletion
+int UpdateApplication	// UpdateApplication
+==                      // 1||0
+bnz creator_only
+
+// Call deletion OnCompletion = DeleteApplication
+txn OnCompletion		// DeleteApplication OnCompletion
+int DeleteApplication	// DeleteApplication
+==						// 1||0
+bnz creator_only
+
+// Unexpected OnCompletion value. Should be unreachable.
+err
+
+// Handle NoOp
+noop:
+	// Handle funding dispenser
+	txna ApplicationArgs 0
+	method "fund(account,asset)void"
+	==
+	bnz fund
+
+	// Handle send
+	// (amt, xaid, receiver)
+	txna ApplicationArgs 0
+	method "send(uint64,uint64,address)void"
+	==
+	bnz send
+
+	// Handle config
+	// (jinaAddr,lqtApp,jinaApp,usdc,jusd)
+	txna ApplicationArgs 0
+	method "config(application,application,asset,asset)void"
+	==
+	bnz config
+
+	// Handle manage
+	// (usdc,lqtApproval,lqtClear,jinaApproval,jinaClear)
+	txna ApplicationArgs 0
+	method "manage(asset,byte[],byte[],byte[],byte[])uint64[]"
+	==
+	bnz manage
+
+	// Handle create
+	// (usdc)
+	txna ApplicationArgs 0
+	method "create(asset)void"
+	==
+	bnz create
+
+	// Handle update child
+	// (approval,clear)
+	txna ApplicationArgs 0
+	method "update_child_app(application,byte[],byte[])void"
+	==
+	bnz update_child_app
+
+	// Handle asset config
+	// (approval,clear)
+	txna ApplicationArgs 0
+	method "asset_config(application,application,asset)void"
+	==
+	bnz asset_config
+
+	err
+
+// Handle send
+send:
+	itxn_begin
+	int 0
+	itxn_field Fee
+	int appl
+	itxn_field TypeEnum
+	global CurrentApplicationID
+	byte "lqt"
+	app_global_get_ex
+	assert
+	itxn_field ApplicationID
+	int NoOp
+	itxn_field OnCompletion
+	// (amt,sender,xaid,reciever)
+	method "send(uint64,address,uint64,address)void"
+	txna ApplicationArgs 1 // amount
+	btoi
+	txn Sender // sender of transfer
+	txna ApplicationArgs 2 // xaid
+	btoi
+	txna ApplicationArgs 3 // reciever of transfer
+	itxn_field ApplicationArgs
+	txna ApplicationArgs 2 // xaid
+	btoi
+	itxn_field Assets
+	global CurrentApplicationID
+	global CurrentApplicationID
+	byte "jina"
+	app_global_get_ex
+	assert
+	itxn_field Applications
+	txn Sender
+	txna ApplicationArgs 3 // reciever of transfer
+	itxn_field Accounts
+	itxn_submit
+	int 1
+	return
+
+//**************************************************************************************************
+// Function       create
+// Description    Contract creation routine. If first time creation, make the owner the creator.
+// Note           Typically this is unnecessary due to the CreatorAddress being statically set,
+//                However we use this to set the owner so we can change it for the admin later.
+// Pops           None
+// Pushes         Function returns 1 when success
+// Group Amount   N/A
+//**************************************************************************************************
+create:
+	byte "usdc"				// intx "usdc"
+	txna Assets 0			// intx Asset
+	app_global_put
+	b creator_only
+
+// Handle manage
+manage:
+	callsub create_lqt
+	callsub create_jina
+	callsub create_jusd
+	callsub create_jna
+	pushbytes 0x151f7c75
+	load 9
+	concat
+	log
+	b creator_only
+
+create_lqt:
+	// Create lqt (liquidator contract)
+	itxn_begin
+	int 0
+	itxn_field Fee
+	int appl
+	itxn_field TypeEnum
+	int 1
+	itxn_field GlobalNumUint
+	int 0
+	dup
+	dup
+	itxn_field GlobalNumByteSlice
+	itxn_field LocalNumUint
+	itxn_field LocalNumByteSlice
+	int NoOp
+	itxn_field OnCompletion
+	method "create(application)void"
+	itxn_field ApplicationArgs
+	global CurrentApplicationID
+	itxn_field Applications
+	txna ApplicationArgs 2 // lqt approval program
+	dup
+	len
+	int 2
+	swap
+	substring3
+	itxn_field ApprovalProgram
+	txna ApplicationArgs 3 // lqt clear program
+	dup
+	len
+	int 2
+	swap
+	substring3
+	itxn_field ClearStateProgram
+	itxn_submit
+	byte "lqt"
+	itxn CreatedApplicationID // appID of lquidator contract
+	dup
+	itob
+	store 9
+	app_global_put
+	retsub
+
+create_jina:
+	// Create jina contract
+	itxn_begin
+	int 0
+	itxn_field Fee
+	int appl
+	itxn_field TypeEnum
+	int 1
+	itxn_field GlobalNumUint
+	int 0
+	itxn_field GlobalNumByteSlice
+	int 2
+	itxn_field LocalNumUint
+	int 4
+	itxn_field LocalNumByteSlice
+	int NoOp
+	itxn_field OnCompletion
+	method "create(application)void"
+	itxn_field ApplicationArgs
+	global CurrentApplicationID
+	itxn_field Applications
+	txna ApplicationArgs 4 // jina approval program
+	dup
+	len
+	int 2
+	swap
+	substring3
+	itxn_field ApprovalProgram
+	txna ApplicationArgs 5 // jina clear program
+	dup
+	len
+	int 2
+	swap
+	substring3
+	itxn_field ClearStateProgram
+	itxn_submit
+	byte "jina"
+	itxn CreatedApplicationID // appID of jina contract
+	dup
+	itob
+	load 9
+	swap
+	concat
+	store 9
+	app_global_put
+	retsub
+
+create_jusd:
+	// Create jUSD (I-O-U asset)
+	itxn_begin
+	int 0
+	itxn_field Fee
+	int acfg
+	itxn_field TypeEnum
+	global CurrentApplicationID
+	byte "usdc"
+	app_global_get_ex
+	assert
+	dup
+	asset_params_get AssetTotal
+	assert
+	itxn_field ConfigAssetTotal
+	asset_params_get AssetDecimals
+	assert
+	itxn_field ConfigAssetDecimals
+	byte "JUSD"
+	itxn_field ConfigAssetUnitName
+	byte "JUSD"
+	itxn_field ConfigAssetName
+	byte "https://"
+	itxn_field ConfigAssetURL
+	global CurrentApplicationAddress
+	itxn_field ConfigAssetManager
+	global CurrentApplicationID
+	byte "jina"
+	app_global_get_ex
+	assert
+	app_params_get AppAddress
+	assert
+	dup
+	itxn_field ConfigAssetReserve
+	itxn_field ConfigAssetFreeze
+	global CurrentApplicationID
+	byte "lqt"
+	app_global_get_ex
+	assert
+	app_params_get AppAddress
+	assert
+	itxn_field ConfigAssetClawback
+	itxn_submit
+	byte "jusd"
+	itxn CreatedAssetID // assetID of IOU token created
+	dup
+	itob
+	load 9
+	swap
+	concat
+	store 9
+	app_global_put
+	retsub
+
+create_jna:
+	// Create JNA (investor token)
+	itxn_begin
+	int 0
+	itxn_field Fee
+	int acfg
+	itxn_field TypeEnum
+	global CurrentApplicationID
+	int 1000
+	itxn_field ConfigAssetTotal
+	int 0
+	itxn_field ConfigAssetDecimals
+	byte "JNA"
+	itxn_field ConfigAssetUnitName
+	byte "JNA"
+	itxn_field ConfigAssetName
+	byte "https://"
+	itxn_field ConfigAssetURL
+	global CurrentApplicationAddress
+	dup
+	itxn_field ConfigAssetManager
+	itxn_field ConfigAssetReserve
+	global CurrentApplicationID
+	byte "jina"
+	app_global_get_ex
+	assert
+	app_params_get AppAddress
+	assert
+	itxn_field ConfigAssetFreeze
+	global CurrentApplicationID
+	byte "lqt"
+	app_global_get_ex
+	assert
+	app_params_get AppAddress
+	assert
+	itxn_field ConfigAssetClawback
+	itxn_submit
+	byte "jna"
+	itxn CreatedAssetID // assetID of IOU token created
+	dup
+	itob
+	load 9
+	swap
+	concat
+	store 9
+	app_global_put
+	retsub
+
+// Configure newly created apps
+config:
+	// fund lqt
+	itxn_begin
+	int 0
+	itxn_field Fee
+	int pay
+	itxn_field TypeEnum
+	int 300000 // (100k jusd, 100k usdc)
+	itxn_field Amount
+	global CurrentApplicationID
+	byte "lqt"
+	app_global_get_ex
+	assert
+	app_params_get AppAddress
+	assert
+	itxn_field Receiver
+
+	// fund jina
+	itxn_next
+	int 0
+	itxn_field Fee
+	int pay
+	itxn_field TypeEnum
+	int 300000 // (100k jusd, 100k usdc)
+	itxn_field Amount
+	global CurrentApplicationID
+	byte "jina"
+	app_global_get_ex
+	assert
+	app_params_get AppAddress
+	assert
+	itxn_field Receiver
+
+	// call lqt manager for optin
+	itxn_next
+	int 0
+	itxn_field Fee
+	int appl
+	itxn_field TypeEnum
+	int NoOp
+	itxn_field OnCompletion
+	global CurrentApplicationID
+	byte "lqt"
+	app_global_get_ex
+	assert
+	itxn_field ApplicationID
+	method "manage(application,asset,asset)void"
+	itxn_field ApplicationArgs
+	global CurrentApplicationID
+	itxn_field Applications
+	global CurrentApplicationID
+	byte "jusd"
+	app_global_get_ex
+	assert
+	itxn_field Assets
+	global CurrentApplicationID
+	byte "usdc"
+	app_global_get_ex
+	assert
+	itxn_field Assets
+
+	// call jina manager for optin
+	itxn_next
+	int 0
+	itxn_field Fee
+	int appl
+	itxn_field TypeEnum
+	int NoOp
+	itxn_field OnCompletion
+	global CurrentApplicationID
+	byte "jina"
+	app_global_get_ex
+	assert
+	itxn_field ApplicationID
+	global CurrentApplicationID
+	itxn_field Applications
+	global CurrentApplicationID
+	byte "jusd"
+	app_global_get_ex
+	assert
+	itxn_field Assets
+	global CurrentApplicationID
+	byte "usdc"
+	app_global_get_ex
+	assert
+	itxn_field Assets
+	method "manage(application,asset,asset)void"
+	itxn_field ApplicationArgs
+
+	// send I-O-U to jina reserve
+	itxn_next
+	int 0
+	itxn_field Fee
+	int axfer
+	itxn_field TypeEnum
+	global CurrentApplicationAddress
+	global CurrentApplicationID
+	byte "jusd"
+	app_global_get_ex
+	assert
+	asset_holding_get AssetBalance
+	assert
+	itxn_field AssetAmount
+	global CurrentApplicationID
+	byte "jusd"
+	app_global_get_ex
+	assert
+	asset_params_get AssetReserve
+	assert
+	itxn_field AssetReceiver
+	itxn_submit
+	b creator_only
+
+update_child_app:
+	// Create lqt (liquidator contract)
+	itxn_begin
+	int 0
+	itxn_field Fee
+	int appl
+	itxn_field TypeEnum
+	int UpdateApplication	// UpdateApplication
+	itxn_field OnCompletion
+	txn Applications 1
+	itxn_field Applications
+	txna ApplicationArgs 2 // approval program
+	dup
+	len
+	int 2
+	swap
+	substring3
+	itxn_field ApprovalProgram
+	txna ApplicationArgs 3 // clear program
+	dup
+	len
+	int 2
+	swap
+	substring3
+	itxn_field ClearStateProgram
+	itxn_submit
+	b creator_only
+
+// correct asset freeze and clawback
+asset_config:
+	int 1
+	return
+
+// for demo purpose
+fund:
+	// Supply some amount for the dispenser
+	// Make sure the account has Opted in for I-O-U asset
+	itxn_begin
+	int 0
+	itxn_field Fee
+	int axfer
+	itxn_field TypeEnum
+	int 1000000000000
+	itxn_field AssetAmount
+	global CurrentApplicationID
+	byte "jusd"
+	app_global_get_ex
+	assert
+	itxn_field XferAsset
+	txna Accounts 1
+	itxn_field AssetReceiver
+	itxn_submit
+	b creator_only
+
+// Allowing updating or deleting the app. For creator only
+creator_only:
+	global CreatorAddress
+	txn Sender
+	==
+	return
+
+//******************************************END OF FILE*********************************************
