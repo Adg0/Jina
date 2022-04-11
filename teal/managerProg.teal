@@ -33,6 +33,7 @@
 // To Do Items
 //**************************************************************************************************
 // 1. Add {unfreeze call}
+// 2. Complete documentation
 //
 //**************************************************************************************************
 // Scratch Space Index
@@ -87,7 +88,7 @@ noop:
 	bnz send
 
 	// Handle config
-	// (jinaAddr,lqtApp,jinaApp,usdc,jusd)
+	// (lqtApp,jinaApp,usdc,jusd)
 	txna ApplicationArgs 0
 	method "config(application,application,asset,asset)void"
 	==
@@ -108,14 +109,14 @@ noop:
 	bnz create
 
 	// Handle update child
-	// (approval,clear)
+	// (appID,approval,clear)
 	txna ApplicationArgs 0
 	method "update_child_app(application,byte[],byte[])void"
 	==
 	bnz update_child_app
 
 	// Handle asset config
-	// (approval,clear)
+	// (jina,lqt,xaid)
 	txna ApplicationArgs 0
 	method "asset_config(application,application,asset)void"
 	==

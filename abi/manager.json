@@ -23,14 +23,14 @@
         },
         {
             "name":"manage",
-            "desc":"create jina borrow lend app and liqudator app",
+            "desc":"create jina borrow lend app and liqudator app, jusd and jna assets",
             "args":[ 
 				{ "type":"asset", "name":"USDC" },
 				{ "type":"byte[]", "name":"lqtApproval" },
 				{ "type":"byte[]", "name":"lqtClear" },
 				{ "type":"byte[]", "name":"jinaApproval" },
 				{ "type":"byte[]", "name":"jinaClear" } ],
-            "returns": {"type":"uint64[]"}
+            "returns": {"type":"uint64[]", "desc":"[lqt jina jusd jna]"}
         },
         {
             "name":"config",

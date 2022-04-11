@@ -83,7 +83,7 @@ func TestDeploy(t *testing.T) {
 
 	acct := accts[1]
 
-	err = Deploy(algodClient, acct, 1, "./abi/manager.json", "./dryrun/app.msgp", "./dryrun/response/app.json")
+	err = Deploy(algodClient, acct, 1, "./abi/manager.json")
 	if err != nil {
 		t.Errorf("test found error, %s", err)
 	}
@@ -103,7 +103,7 @@ func TestUpdate(t *testing.T) {
 
 	acct := accts[1]
 
-	err = Update(algodClient, acct, "./abi/manager.json", "./dryrun/update.msgp", "./dryrun/response/update.json")
+	err = Update(algodClient, acct, "./abi/manager.json")
 	if err != nil {
 		t.Errorf("test found error, %s", err)
 	}
@@ -159,7 +159,7 @@ func TestCreateApps(t *testing.T) {
 		log.Fatalf("approvalProg found error, %s", err)
 	}
 	fmt.Printf("address: %s\n", crypto.GetApplicationAddress(2).String())
-	err = CreateApps(algodClient, acct, 1, lqtApp, lqtClear, jinaApp, jinaClear, "./abi/manager.json", "./dryrun/create_apps.msgp", "./dryrun/response/create_apps.json")
+	err = CreateApps(algodClient, acct, 1, lqtApp, lqtClear, jinaApp, jinaClear, "./abi/manager.json")
 	if err != nil {
 		t.Errorf("test found error, %s", err)
 	}
@@ -179,7 +179,7 @@ func TestConfigureApps(t *testing.T) {
 
 	acct := accts[1]
 
-	err = ConfigureApps(algodClient, acct, 54, 55, 1, 56, "./abi/manager.json", "./dryrun/config.msgp", "./dryrun/response/config.json")
+	err = ConfigureApps(algodClient, acct, 54, 55, 1, 56, "./abi/manager.json")
 	if err != nil {
 		t.Errorf("test found error, %s", err)
 	}
@@ -226,7 +226,7 @@ func TestSendJusd(t *testing.T) {
 	acct := accts[1]
 
 	rec := crypto.GetApplicationAddress(55)
-	err = SendJusd(algodClient, acct, rec, 56, "./abi/manager.json", "./dryrun/sendJusd.msgp", "./dryrun/response/sendJusd.json")
+	err = SendJusd(algodClient, acct, rec, 56, "./abi/manager.json")
 	if err != nil {
 		t.Errorf("test found error, %s", err)
 	}
@@ -245,7 +245,7 @@ func TestChildUpdate(t *testing.T) {
 
 	acct := accts[1]
 
-	err = ChildUpdate(algodClient, acct, 55, "./teal/approvalProg.teal", "./teal/jinaClear.teal", "./abi/manager.json", "./dryrun/update_child.msgp", "./dryrun/response/update_child.json")
+	err = ChildUpdate(algodClient, acct, 55, "./teal/approvalProg.teal", "./teal/jinaClear.teal", "./abi/manager.json")
 	if err != nil {
 		t.Errorf("test found error, %s", err)
 	}
@@ -264,7 +264,7 @@ func TestOptin(t *testing.T) {
 
 	acct := accts[0]
 
-	err = Optin(algodClient, acct, 2, "./abi/jina.json", "./dryrun/optin.msgp", "./dryrun/response/optin.json")
+	err = Optin(algodClient, acct, 2, "./abi/jina.json")
 	if err != nil {
 		t.Errorf("test found error, %s", err)
 	}
@@ -304,7 +304,7 @@ func TestEarn(t *testing.T) {
 	}
 	lsa := sha256.Sum256(lsaRaw.Lsig.Logic)
 
-	err = Earn(algodClient, acct, xids, aamt, lvr, lsa[:4], "./abi/jina.json", "./dryrun/earn.msgp", "./dryrun/response/earn.json")
+	err = Earn(algodClient, acct, xids, aamt, lvr, lsa[:4], "./abi/jina.json")
 	if err != nil {
 		t.Errorf("test found error, %s", err)
 	}
@@ -326,7 +326,7 @@ func TestClaim(t *testing.T) {
 
 	amt := uint64(100000000)
 
-	err = Claim(algodClient, acct, 55, amt, 1, 56, "./abi/jina.json", "./dryrun/claim.msgp", "./dryrun/response/claim.json")
+	err = Claim(algodClient, acct, 55, amt, 1, 56, "./abi/jina.json")
 	if err != nil {
 		t.Errorf("test found error, %s", err)
 	}
@@ -350,7 +350,7 @@ func TestBorrow(t *testing.T) {
 	camt := []uint64{20}
 	lamt := []uint64{10000000}
 
-	err = Borrow(algodClient, acct, accts[0], 1, xids, camt, lamt, "./codec/lender_lsig.codec", "./abi/jina.json", "./dryrun/borrow.msgp", "./dryrun/response/borrow.json")
+	err = Borrow(algodClient, acct, accts[0], 1, xids, camt, lamt, "./codec/lender_lsig.codec", "./abi/jina.json")
 	if err != nil {
 		t.Errorf("test found error, %s", err)
 	}
@@ -373,7 +373,7 @@ func TestRepay(t *testing.T) {
 	xids := []uint64{86}
 	ramt := []uint64{1000000}
 
-	err = Repay(algodClient, acct, 55, 1, xids, ramt, "./abi/jina.json", "./dryrun/repay.msgp", "./dryrun/response/repay.json")
+	err = Repay(algodClient, acct, 55, 1, xids, ramt, "./abi/jina.json")
 	if err != nil {
 		t.Errorf("test found error, %s", err)
 	}
