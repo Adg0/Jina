@@ -141,7 +141,6 @@ func signSendWait(algodClient *algod.Client, sk ed25519.PrivateKey, txn types.Tr
 
 // Make Jina application call to earn USDCa at 3%
 func Earn(algodClient *algod.Client, acct crypto.Account, xids []uint64, aamt, lvr uint64, lsa []byte, contract_json string) (err error) {
-	fmt.Println("inside Earn")
 	f, err := os.Open(contract_json)
 	if err != nil {
 		log.Fatalf("Failed to open contract file: %+v", err)
@@ -718,6 +717,24 @@ func combine(mcp future.AddMethodCallParams, m abi.Method, a []interface{}) futu
 	mcp.Method = m
 	mcp.MethodArgs = a
 	return mcp
+}
+
+func getContract(file string) (err error) {
+	f, err := os.Open(file)
+	if err != nil {
+		log.Fatalf("Failed to open contract file: %+v", err)
+	}
+
+	b, err := ioutil.ReadAll(f)
+	if err != nil {
+		log.Fatalf("Failed to read file: %+v", err)
+	}
+
+	contract := &abi.Contract{}
+	if err := json.Unmarshal(b, contract); err != nil {
+		log.Fatalf("Failed to marshal contract: %+v", err)
+	}
+	return
 }
 
 func CompileSmartContractTeal(algodClient *algod.Client, osTealFile string) (compiledProgram []byte, err error) {
