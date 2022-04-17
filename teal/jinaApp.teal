@@ -38,12 +38,12 @@ handle_noop:
 	==
 	bnz borrow
 
-	// Handle updating collateral
+	// Handle changing collateral
 	// (xids, camt,[xids],[mng,lqt])
 	txna ApplicationArgs 0
-	method "update_collateral(uint64[],uint64[],asset,application,application)void"
+	method "change_collateral(uint64[],uint64[],asset,application,application)void"
 	==
-	bnz update_collateral
+	bnz change_collateral
 
 	// Handle liquidity providers
 	// (xids, aamt, lvr, lsa)
@@ -55,14 +55,14 @@ handle_noop:
 	// Handle repay
 	// (xids, ramt,unfreezables)
 	txna ApplicationArgs 0
-	method "repay(axfer,uint64[],uint64[],asset)void"
+	method "repay(axfer,uint64[],uint64[],asset,application,application)void"
 	==
 	bnz repay
 
 	// Handle claim
-	// (axfer,usdc)
+	// (axfer,usdc,mng)
 	txna ApplicationArgs 0
-	method "claim(axfer,asset)void"
+	method "claim(axfer,asset,application)void"
 	==
 	bnz claim
 
@@ -85,9 +85,12 @@ handle_noop:
 
 // Handle borrowing
 borrow:
-	txna ApplicationArgs 2 // xids
-	txna ApplicationArgs 3 // camt
-	txna ApplicationArgs 4 // lamt
+	txna ApplicationArgs 1 // xids
+	callsub trim_length
+	txna ApplicationArgs 2 // camt
+	callsub trim_length
+	txna ApplicationArgs 3 // lamt
+	callsub trim_length
 	store 3
 	store 2
 	dup
@@ -107,13 +110,16 @@ borrow:
 	bnz check_args
 	err
 
+// remove the first 2 byte that identifies length
+trim_length:
+	dup
+	len
+	int 2
+	swap
+	substring3
+	retsub
+
 check_args:
-	// assets used as collateral(camt) and have loan requested exists.
-//	load 2 // camt
-//	load 4 // pointer
-//	extract_uint64
-//	int 0
-//	>
 	// in version v0.1, borrower must request some loan when borrowing
 	load 3 // lamt
 	load 4 // pointer
@@ -190,6 +196,8 @@ previous_collateral:
 	app_local_get_ex
 	assert
 	dup
+	dup
+	store 99 // xids local state
 	len
 	load 100 // temp pointer
 	>
@@ -221,17 +229,15 @@ previous_collateral:
 popcall:
 	pop
 	int 0
+	dup
+	store 100 // reset temp pointer
 	retsub
 
 check_loan_health:
-	txn Sender
-	global CurrentApplicationID
-	byte "xids"
-	app_local_get_ex
+	load 99 // xids local state
 	// if first time borrowing just jump to verify loan health
 	bz verify_loan_health
 	// continue and check if there is an existing loan
-	store 99
 	b loop_for_existing_loan
 
 loop_for_existing_loan:
@@ -262,6 +268,7 @@ loop_for_existing_loan:
 	-
 	store 100
 	// fetch lamt from historical loan
+	txn Sender
 	global CurrentApplicationID
 	byte "lamt"
 	app_local_get_ex
@@ -270,6 +277,7 @@ loop_for_existing_loan:
 	extract_uint64
 	store 103 // lamt local state
 	// fetch camt from historical loan
+	txn Sender
 	global CurrentApplicationID
 	byte "camt"
 	app_local_get_ex
@@ -365,7 +373,6 @@ new_loan_state:
 	txn Sender
 	byte "xids"
 	load 1
-	itob
 	txn Sender
 	global CurrentApplicationID
 	byte "xids"
@@ -376,27 +383,46 @@ new_loan_state:
 	// update camt local state
 	txn Sender
 	byte "camt"
-	load 2
+	load 202 // new camt
 	itob
 	txn Sender
 	global CurrentApplicationID
 	byte "camt"
 	app_local_get_ex
 	pop
+	itob
 	concat
 	app_local_put
 	// update lamt local state
 	txn Sender
 	byte "lamt"
-	load 3
+	load 203 // new lamt
 	itob
 	txn Sender
 	global CurrentApplicationID
 	byte "lamt"
 	app_local_get_ex
 	pop
+	itob
 	concat
 	app_local_put
+
+	// Freeze asset
+	itxn_begin
+	int 0
+	itxn_field Fee
+	int afrz
+	itxn_field TypeEnum
+	txn Sender
+	itxn_field FreezeAssetAccount
+	//asset to be frozen
+	load 1 // xids
+	load 4 // pointer
+	extract_uint64
+	itxn_field FreezeAsset
+	int 1 //set frozen status to true
+	itxn_field FreezeAssetFrozen
+	itxn_submit // this is an atomic inner transaction
 	b lenders_allow_collateral
 
 update_loan_state:
@@ -446,7 +472,6 @@ lenders_allow_collateral:
 	callsub loop_allowed_asset
 	assert
 	callsub update_liquidity
-	assert
 	int 1
 	load 5 // lender
 	+
@@ -529,8 +554,8 @@ update_liquidity:
 	itxn_submit
 	retsub
 
-// Handle collateral update
-update_collateral:
+// Handle collateral change
+change_collateral:
 	txna ApplicationArgs 1 // xids
 	txna ApplicationArgs 2 // camt
 	dup2
@@ -631,6 +656,7 @@ earn:
 	dup2
 	byte "xids" // as allowed_assets
 	txna ApplicationArgs 1
+	callsub trim_length
 	app_local_put 
 	byte "aamt"
 	txna ApplicationArgs 2
@@ -642,6 +668,7 @@ earn:
 	app_local_put
 	byte "lsa"
 	txna ApplicationArgs 4
+	callsub trim_length
 	app_local_put
 	int 1
 	return
@@ -715,7 +742,9 @@ handle_optin:
 // Handle repay
 repay:
 	txna ApplicationArgs 1 // xids
+	callsub trim_length
 	txna ApplicationArgs 2 // ramt
+	callsub trim_length
 	dup2
 	store 2
 	store 1

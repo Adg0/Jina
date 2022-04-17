@@ -1,191 +1,81 @@
 package main
 
 import (
-	"context"
-	"encoding/json"
-	"io/ioutil"
 	"log"
-	"os"
 	"strings"
 
-	"github.com/algorand/go-algorand-sdk/abi"
-	"github.com/algorand/go-algorand-sdk/client/algod"
-	"github.com/algorand/go-algorand-sdk/future"
-	"github.com/algorand/go-algorand-sdk/types"
+	"github.com/Adg0/Jina"
 )
 
 var (
-	algodAddress = "http://localhost:4001"
-	algodToken   = strings.Repeat("a", 64)
-	usdc         = 1
+	usdc           = uint64(10458941)
+	sandboxAddress = "http://localhost:4001"
+	sandboxToken   = strings.Repeat("a", 64)
 )
 
 func main() {
-	algodClient, err := algod.MakeClient(algodAddress, algodToken)
+	algodClient, err := Jina.InitAlgodClient(sandboxAddress, sandboxToken, "local")
 	if err != nil {
-		log.Fatalf("Failed to init client: %+v", err)
+		log.Fatalf("algodClient found error: %s", err)
 	}
-
-	accts, err := GetAccounts()
+	// Three accounts
+	// accts[0] is creator of dapp
+	// accts[1] is manager of NFT collateral (default holder of collateral)
+	// accts[2] is liquidity provider
+	// any account that holds collateral NFT configured to have appropriate admin addresses can be borrower after optin to jina app
+	accts, err := Jina.GetAccounts()
 	if err != nil {
 		log.Fatalf("Failed to get accounts: %+v", err)
 	}
-
-	// Manager contract calls
-	f, err := os.Open("../abi/manager.json")
+	// Create USDC asset for sandbox
+	usdc, err = Jina.Start(algodClient, accts[0])
 	if err != nil {
-		log.Fatalf("Failed to open contract file: %+v", err)
+		log.Fatalf("Start found error: %s", err)
 	}
-
-	b, err := ioutil.ReadAll(f)
+	// Create NFT for sandbox
+	collateral, err := Jina.CreateASA(algodClient, accts[1], 1000, 0, "LFT", "https://")
 	if err != nil {
-		log.Fatalf("Failed to read file: %+v", err)
+		log.Fatalf("Create NFT found error: %s", err)
 	}
 
-	contract := &abi.Contract{}
-	if err := json.Unmarshal(b, contract); err != nil {
-		log.Fatalf("Failed to marshal contract: %+v", err)
-	}
-
-	txParams, err := algodClient.SuggestedParams().Do(context.Background())
+	// Deploy manager contract
+	mng, err := Jina.Deploy(algodClient, accts[0], usdc, "./abi/manager.json")
 	if err != nil {
-		log.Fatalf("Failed to get suggeted params: %+v", err)
+		log.Fatalf("Deploying found error: %s", err)
 	}
-	txParams.FlatFee = true
-
-	signer := future.BasicAccountTransactionSigner{Account: accts[0]}
-
-	txParams.Fee = 1000 // creation txn is min fee
-	mcp := future.AddMethodCallParams{
-		AppID:           contract.Networks["default"].AppID,
-		Sender:          accts[0].Address,
-		SuggestedParams: txParams,
-		OnComplete:      types.NoOpOC,
-		Signer:          signer,
-		ApprovalProgram: app,
-		ClearProgram:    clear,
-		GlobalSchema:    types.StateSchema{NumUint: 6, NumByteSlice: 0},
-		LocalSchema:     types.StateSchema{NumUint: 0, NumByteSlice: 0},
-	}
-
-	// Skipping error checks below during AddMethodCall and txn create
-	var atc = future.AtomicTransactionComposer{}
-	atc.AddMethodCall(combine(mcp, getMethod(contract, "create"), []interface{}{usdc}))
-	_, err = atc.Execute(algodClient, context.Background(), 2)
+	err = Jina.Fund(algodClient, accts[0], mng, 10000000)
 	if err != nil {
-		log.Fatalf("Failed to execute call: %+v", err)
+		log.Fatalf("Funding contract found error: %s", err)
 	}
 
-	txParams.Fee = 5000 // manage creates 4 txn
-	mcp = future.AddMethodCallParams{
-		AppID:           contract.Networks["default"].AppID,
-		Sender:          accts[0].Address,
-		SuggestedParams: txParams,
-		OnComplete:      types.NoOpOC,
-		Signer:          signer,
-	}
-
-	atc = future.AtomicTransactionComposer{}
-	atc.AddMethodCall(combine(mcp, getMethod(contract, "manage"), []interface{}{usdc, lqtApproval, lqtClear, jinaApproval, jinaClear}))
-	ret, err := atc.Execute(algodClient, context.Background(), 2)
+	// Create child apps
+	lqtClear, err := Jina.CompileSmartContractTeal(algodClient, "./teal/clearState.teal")
 	if err != nil {
-		log.Fatalf("Failed to execute call: %+v", err)
+		log.Fatalf("clearState found error, %s", err)
 	}
-	for _, r := range ret.MethodResults {
-		log.Printf("%s returned %+v", r.TxID, r.ReturnValue)
-	}
-
-	atc = future.AtomicTransactionComposer{}
-	lqt := ret.MethodResults[0]
-	jina := ret.MethodResults[1]
-	jusd := ret.MethodResults[2]
-	atc.AddMethodCall(combine(mcp, getMethod(contract, "config"), []interface{}{lqt, jina, usdc, jusd}))
-
-	// Jina calls
-	f, err = os.Open("../abi/jina.json")
+	lqtApp, err := Jina.CompileSmartContractTeal(algodClient, "./teal/liquidatorApp.teal")
 	if err != nil {
-		log.Fatalf("Failed to open contract file: %+v", err)
+		log.Fatalf("liquidatorApp found error, %s", err)
 	}
-
-	b, err = ioutil.ReadAll(f)
+	jinaClear, err := Jina.CompileSmartContractTeal(algodClient, "./teal/jinaClear.teal")
 	if err != nil {
-		log.Fatalf("Failed to read file: %+v", err)
+		log.Fatalf("jinaClear found error, %s", err)
 	}
-
-	contract = &abi.Contract{}
-	if err := json.Unmarshal(b, contract); err != nil {
-		log.Fatalf("Failed to marshal contract: %+v", err)
-	}
-
-	// Optin
-	signer = future.BasicAccountTransactionSigner{Account: accts[1]}
-	txParams.Fee = 1000 // fee for optin
-	mcp = future.AddMethodCallParams{
-		AppID:           contract.Networks["default"].AppID,
-		Sender:          accts[1].Address,
-		SuggestedParams: txParams,
-		OnComplete:      types.OptInOC,
-		Signer:          signer,
-	}
-	atc = future.AtomicTransactionComposer{}
-	atc.AddMethodCall(combine(mcp, getMethod(contract, "optin"), []interface{}{manager}))
-	ret, err = atc.Execute(algodClient, context.Background(), 2)
+	jinaApp, err := Jina.CompileSmartContractTeal(algodClient, "./teal/jinaApp.teal")
 	if err != nil {
-		log.Fatalf("Failed to execute call: %+v", err)
+		log.Fatalf("jinaApp found error, %s", err)
 	}
-	for _, r := range ret.MethodResults {
-		log.Printf("%s returned %+v", r.TxID, r.ReturnValue)
-	}
-
-	atc.AddMethodCall(combine(mcp, getMethod(contract, "earn"), []interface{}{xids, aamt, lvr, lsa}))
-	atc.AddMethodCall(combine(mcp, getMethod(contract, "borrow"), []interface{}{xids, camt, lamt}))
-
-	// // String arg/return
-	atc.AddMethodCall(combine(mcp, getMethod(contract, "reverse"), []interface{}{"desrever yllufsseccus"}))
-
-	// []string arg, string return
-	atc.AddMethodCall(combine(mcp, getMethod(contract, "concat_strings"), []interface{}{[]string{"this", "string", "is", "joined"}}))
-
-	// Txn arg, uint return
-	txn, _ := future.MakePaymentTxn(acct.Address.String(), acct.Address.String(), 10000, nil, "", txParams)
-	stxn := future.TransactionWithSigner{Txn: txn, Signer: signer}
-	atc.AddMethodCall(combine(mcp, getMethod(contract, "txntest"), []interface{}{10000, stxn, 1000}))
-
-	// >14 args, so they get tuple encoded automatically
-	err = atc.AddMethodCall(combine(mcp, getMethod(contract, "manyargs"),
-		[]interface{}{
-			1, 1, 1, 1, 1,
-			1, 1, 1, 1, 1,
-			1, 1, 1, 1, 1,
-			1, 1, 1, 1, 1,
-		}))
-
+	ids, err := Jina.CreateApps(algodClient, accts[0], usdc, lqtApp, lqtClear, jinaApp, jinaClear, "./abi/manager.json", "./abi/lqt.json", "./abi/jina.json")
+	lqt := ids[0]
+	jina := ids[1]
+	jusd := ids[2]
+	jna := ids[3]
+	err = Jina.ConfigureApps(algodClient, accts[0], lqt, jina, usdc, jusd, "./abi/manager.json")
 	if err != nil {
-		log.Fatalf("Failed to add method call: %+v", err)
+		log.Fatalf("Configuring created apps found error: %s", err)
 	}
-
-	ret, err = atc.Execute(algodClient, context.Background(), 2)
+	err = Jina.ConfigASA(algodClient, accts[1].PrivateKey, mng, jina, lqt, collateral)
 	if err != nil {
-		log.Fatalf("Failed to execute call: %+v", err)
+		log.Fatalf("Configuring NFT found error: %s", err)
 	}
-
-	for _, r := range ret.MethodResults {
-		log.Printf("%s returned %+v", r.TxID, r.ReturnValue)
-	}
-}
-
-func getMethod(c *abi.Contract, name string) (m abi.Method) {
-	for _, m = range c.Methods {
-		if m.Name == name {
-			return
-		}
-	}
-	log.Fatalf("No method named: %s", name)
-	return
-}
-
-func combine(mcp future.AddMethodCallParams, m abi.Method, a []interface{}) future.AddMethodCallParams {
-	mcp.Method = m
-	mcp.MethodArgs = a
-	return mcp
 }

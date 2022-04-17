@@ -21,16 +21,16 @@ err
 // Handle NoOp
 handle_noop:
 	// Handle liquidate
-	// (liquidatee, xaid, reciever)
+	// (liquidatee, reciever, xaid)
 	txna ApplicationArgs 0
-	method "liquidate(axfer,address,uint64,address)void"
+	method "liquidate(axfer,account,account,asset)void"
 	==
 	bnz liquidate
 
 	// Handle transfer excess asset
-	// (sender, xaid, claw_amt, reciever)
+	// (sender, reciever, xaid, claw_amt)
 	txna ApplicationArgs 0
-	method "send(address,uint64,uint64,address)void"
+	method "send(account,account,asset,uint64)void"
 	==
 	bnz send
 
@@ -61,9 +61,8 @@ handle_noop:
 // Handle liquidate
 liquidate:
 	txna ApplicationArgs 1 // liquidatee
-	txna ApplicationArgs 2 // xaid
-	btoi
-	txna ApplicationArgs 3 // clawback reciever
+	txna Assets 0 // xaid
+	txna ApplicationArgs 2 // clawback reciever
 	store 3 // clawback receiver
 	store 2 // xaid
 	store 1 // liquidatee
@@ -203,11 +202,10 @@ forward_payment:
 
 // Handle send
 send:
-	txna ApplicationArgs 1 // claw amount
-	txna ApplicationArgs 2 // sender
-	txna ApplicationArgs 3 // xaid
-	btoi
-	txna ApplicationArgs 4 // reciever of clawback
+	txna ApplicationArgs 4 // claw amount
+	txna ApplicationArgs 1 // sender
+	txna Assets 0 // xaid
+	txna ApplicationArgs 2 // reciever of clawback
 	store 3 // reciever of clawback
 	store 2 // xaid
 	store 1 // liquidatee

@@ -4,16 +4,29 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
-	"fmt"
 	"log"
+	"strings"
 	"testing"
 
 	"github.com/algorand/go-algorand-sdk/crypto"
 	"github.com/algorand/go-algorand-sdk/future"
 )
 
+var (
+	usdc           = uint64(1) //10458941)
+	collateral     = uint64(2)
+	mng            = uint64(3)
+	lqt            = uint64(4)
+	jina           = uint64(6)
+	jusd           = uint64(7)
+	jna            = uint64(8)
+	sandboxAddress = "http://localhost:4001"
+	sandboxToken   = strings.Repeat("a", 64)
+)
+
 func TestConfigASA(t *testing.T) {
-	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
+	//idempotencyKey := sha256.Sum256([]byte(fmt.Sprintf("%v",fields...)))
+	algodClient, err := InitAlgodClient(sandboxAddress, sandboxToken, "local")
 	if err != nil {
 		t.Errorf("algodClient found error, %s", err)
 	}
@@ -25,7 +38,7 @@ func TestConfigASA(t *testing.T) {
 
 	acct := accts[2]
 
-	err = ConfigASA(algodClient, acct.PrivateKey, 2, 55, 54, 86)
+	_, err = ConfigASA(algodClient, acct.PrivateKey, mng, jina, lqt, collateral)
 	if err != nil {
 		t.Errorf("test found error, %s", err)
 	}
@@ -33,7 +46,7 @@ func TestConfigASA(t *testing.T) {
 
 func TestStart(t *testing.T) {
 	// create USDC asset
-	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
+	algodClient, err := InitAlgodClient(sandboxAddress, sandboxToken, "local")
 	if err != nil {
 		t.Errorf("algodClient found error, %s", err)
 	}
@@ -45,14 +58,33 @@ func TestStart(t *testing.T) {
 
 	acct := accts[0]
 
-	err = Start(algodClient, acct)
+	_, err = Start(algodClient, acct)
+	if err != nil {
+		t.Errorf("test found error, %s", err)
+	}
+}
+
+func TestCreateASA(t *testing.T) {
+	algodClient, err := InitAlgodClient(sandboxAddress, sandboxToken, "local")
+	if err != nil {
+		t.Errorf("algodClient found error, %s", err)
+	}
+
+	accts, err := GetAccounts()
+	if err != nil {
+		log.Fatalf("Failed to get accounts: %+v", err)
+	}
+
+	acct := accts[2]
+
+	err = CreateASA(algodClient, acct, 1000, 0, "LFT")
 	if err != nil {
 		t.Errorf("test found error, %s", err)
 	}
 }
 
 func TestOptinASA(t *testing.T) {
-	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
+	algodClient, err := InitAlgodClient(sandboxAddress, sandboxToken, "local")
 	if err != nil {
 		t.Errorf("algodClient found error, %s", err)
 	}
@@ -64,18 +96,18 @@ func TestOptinASA(t *testing.T) {
 
 	acct := accts[0]
 
-	err = OptinASA(algodClient, acct.PrivateKey, 56)
+	err = OptinASA(algodClient, acct.PrivateKey, jusd)
 	if err != nil {
 		t.Errorf("test found error, %s", err)
 	}
 }
 
 func TestDeploy(t *testing.T) {
-	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
+	algodClient, err := InitAlgodClient(sandboxAddress, sandboxToken, "local")
+	//	algodClient, err := InitAlgodClient(AlgodAddressPurestake, AlgodTokenPurestake, "purestake")
 	if err != nil {
 		t.Errorf("algodClient found error, %s", err)
 	}
-
 	accts, err := GetAccounts()
 	if err != nil {
 		log.Fatalf("Failed to get accounts: %+v", err)
@@ -83,15 +115,25 @@ func TestDeploy(t *testing.T) {
 
 	acct := accts[1]
 
-	err = Deploy(algodClient, acct, 1, "./abi/manager.json")
+	/*
+		sk, err := mnemonic.ToPrivateKey(ThirdMn)
+		if err != nil {
+			t.Errorf("sk found error, %s", err)
+		}
+		acct, err := crypto.AccountFromPrivateKey(sk)
+		if err != nil {
+			t.Errorf("acct found error, %s", err)
+		}
+	*/
+
+	mng, err = Deploy(algodClient, acct, usdc, "./abi/manager.json")
 	if err != nil {
 		t.Errorf("test found error, %s", err)
 	}
-
 }
 
 func TestUpdate(t *testing.T) {
-	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
+	algodClient, err := InitAlgodClient(sandboxAddress, sandboxToken, "local")
 	if err != nil {
 		t.Errorf("algodClient found error, %s", err)
 	}
@@ -111,7 +153,7 @@ func TestUpdate(t *testing.T) {
 }
 
 func TestFund(t *testing.T) {
-	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
+	algodClient, err := InitAlgodClient(sandboxAddress, sandboxToken, "local")
 	if err != nil {
 		t.Errorf("algodClient found error, %s", err)
 	}
@@ -122,15 +164,25 @@ func TestFund(t *testing.T) {
 	}
 
 	acct := accts[0]
+	/*
+		sk, err := mnemonic.ToPrivateKey(ToMn)
+		if err != nil {
+			t.Errorf("sk found error, %s", err)
+		}
+		acct, err := crypto.AccountFromPrivateKey(sk)
+		if err != nil {
+			t.Errorf("acct found error, %s", err)
+		}
+	*/
 
-	err = Fund(algodClient, acct, 2, 100000000)
+	err = Fund(algodClient, acct, mng, 10000000)
 	if err != nil {
 		t.Errorf("test found error, %s", err)
 	}
 }
 
 func TestCreateApps(t *testing.T) {
-	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
+	algodClient, err := InitAlgodClient(sandboxAddress, sandboxToken, "local")
 	if err != nil {
 		t.Errorf("algodClient found error, %s", err)
 	}
@@ -141,25 +193,25 @@ func TestCreateApps(t *testing.T) {
 	}
 
 	acct := accts[1]
-	// get approvalProg and clearProg as []byte
+
 	lqtClear, err := CompileSmartContractTeal(algodClient, "./teal/clearState.teal")
 	if err != nil {
 		log.Fatalf("clearState found error, %s", err)
 	}
-	lqtApp, err := CompileSmartContractTeal(algodClient, "./teal/liquidatorProg.teal")
+	lqtApp, err := CompileSmartContractTeal(algodClient, "./teal/liquidatorApp.teal")
 	if err != nil {
-		log.Fatalf("liquidatorProg found error, %s", err)
+		log.Fatalf("liquidatorApp found error, %s", err)
 	}
 	jinaClear, err := CompileSmartContractTeal(algodClient, "./teal/jinaClear.teal")
 	if err != nil {
 		log.Fatalf("jinaClear found error, %s", err)
 	}
-	jinaApp, err := CompileSmartContractTeal(algodClient, "./teal/approvalProg.teal")
+	jinaApp, err := CompileSmartContractTeal(algodClient, "./teal/jinaApp.teal")
 	if err != nil {
-		log.Fatalf("approvalProg found error, %s", err)
+		log.Fatalf("jinaApp found error, %s", err)
 	}
-	fmt.Printf("address: %s\n", crypto.GetApplicationAddress(2).String())
-	err = CreateApps(algodClient, acct, 1, lqtApp, lqtClear, jinaApp, jinaClear, "./abi/manager.json")
+
+	_, err = CreateApps(algodClient, acct, usdc, lqtApp, lqtClear, jinaApp, jinaClear, "./abi/manager.json", "./abi/lqt.json", "./abi/jina.json")
 	if err != nil {
 		t.Errorf("test found error, %s", err)
 	}
@@ -167,7 +219,7 @@ func TestCreateApps(t *testing.T) {
 }
 
 func TestConfigureApps(t *testing.T) {
-	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
+	algodClient, err := InitAlgodClient(sandboxAddress, sandboxToken, "local")
 	if err != nil {
 		t.Errorf("algodClient found error, %s", err)
 	}
@@ -179,7 +231,7 @@ func TestConfigureApps(t *testing.T) {
 
 	acct := accts[1]
 
-	err = ConfigureApps(algodClient, acct, 54, 55, 1, 56, "./abi/manager.json")
+	err = ConfigureApps(algodClient, acct, lqt, jina, usdc, jusd, "./abi/manager.json")
 	if err != nil {
 		t.Errorf("test found error, %s", err)
 	}
@@ -187,7 +239,7 @@ func TestConfigureApps(t *testing.T) {
 }
 
 func TestUsdc(t *testing.T) {
-	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
+	algodClient, err := InitAlgodClient(sandboxAddress, sandboxToken, "local")
 	if err != nil {
 		t.Errorf("algodClient found error, %s", err)
 	}
@@ -203,9 +255,7 @@ func TestUsdc(t *testing.T) {
 		log.Fatalf("Failed to get suggeted params: %+v", err)
 	}
 
-	rec := "Z5PCDU5SNKRFJIIOIZDY2PUUQ4RTV4RZYVKHJPPYKCQLGNGGEGCZD5PDT4"
-	//rec := "U2PARS7KSZ3XIY6OU45Q43UHRCYYCRS7A32RRYFQER2YCCWE4ARKYB2WXQ"
-	txn, _ := future.MakeAssetTransferTxn(acct.Address.String(), rec, 100000000, nil, txParams, "", 1)
+	txn, _ := future.MakeAssetTransferTxn(acct.Address.String(), accts[2].Address.String(), 100000000, nil, txParams, "", usdc)
 	signSendWait(algodClient, acct.PrivateKey, txn)
 	if err != nil {
 		t.Errorf("test found error, %s", err)
@@ -213,7 +263,7 @@ func TestUsdc(t *testing.T) {
 }
 
 func TestSendJusd(t *testing.T) {
-	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
+	algodClient, err := InitAlgodClient(sandboxAddress, sandboxToken, "local")
 	if err != nil {
 		t.Errorf("algodClient found error, %s", err)
 	}
@@ -225,15 +275,15 @@ func TestSendJusd(t *testing.T) {
 
 	acct := accts[1]
 
-	rec := crypto.GetApplicationAddress(55)
-	err = SendJusd(algodClient, acct, rec, 56, "./abi/manager.json")
+	rec := crypto.GetApplicationAddress(jina)
+	err = SendJusd(algodClient, acct, rec, jusd, "./abi/manager.json")
 	if err != nil {
 		t.Errorf("test found error, %s", err)
 	}
 }
 
 func TestChildUpdate(t *testing.T) {
-	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
+	algodClient, err := InitAlgodClient(sandboxAddress, sandboxToken, "local")
 	if err != nil {
 		t.Errorf("algodClient found error, %s", err)
 	}
@@ -245,14 +295,14 @@ func TestChildUpdate(t *testing.T) {
 
 	acct := accts[1]
 
-	err = ChildUpdate(algodClient, acct, 55, "./teal/approvalProg.teal", "./teal/jinaClear.teal", "./abi/manager.json")
+	err = ChildUpdate(algodClient, acct, jina, "./teal/jinaApp.teal", "./teal/jinaClear.teal", "./abi/manager.json")
 	if err != nil {
 		t.Errorf("test found error, %s", err)
 	}
 }
 
 func TestOptin(t *testing.T) {
-	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
+	algodClient, err := InitAlgodClient(sandboxAddress, sandboxToken, "local")
 	if err != nil {
 		t.Errorf("algodClient found error, %s", err)
 	}
@@ -262,16 +312,16 @@ func TestOptin(t *testing.T) {
 		log.Fatalf("Failed to get accounts: %+v", err)
 	}
 
-	acct := accts[0]
+	acct := accts[2]
 
-	err = Optin(algodClient, acct, 2, "./abi/jina.json")
+	err = Optin(algodClient, acct, mng, "./abi/jina.json")
 	if err != nil {
 		t.Errorf("test found error, %s", err)
 	}
 }
 
 func TestEarn(t *testing.T) {
-	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
+	algodClient, err := InitAlgodClient(sandboxAddress, sandboxToken, "local")
 	if err != nil {
 		t.Errorf("algodClient found error, %s", err)
 	}
@@ -283,16 +333,16 @@ func TestEarn(t *testing.T) {
 
 	acct := accts[0]
 
-	xids := []uint64{86, 56, 57}
+	xids := []uint64{collateral, jusd, jna}
 	aamt := uint64(100000000)
 	lvr := uint64(172800) //+ uint64(txParams.FirstRoundValid)
 
 	lsigArgs := make([][]byte, 4)
 	var buf [4][8]byte
-	binary.BigEndian.PutUint64(buf[0][:], 1)    // USDCa asset ID
+	binary.BigEndian.PutUint64(buf[0][:], usdc) // USDCa asset ID
 	binary.BigEndian.PutUint64(buf[1][:], aamt) // loan available (50 USDCa)
 	binary.BigEndian.PutUint64(buf[2][:], lvr)  // Expiring lifespan: 17280 rounds == 1 day
-	binary.BigEndian.PutUint64(buf[3][:], 55)   // jina appID
+	binary.BigEndian.PutUint64(buf[3][:], jina) // jina appID
 	lsigArgs[0] = buf[0][:]
 	lsigArgs[1] = buf[1][:]
 	lsigArgs[2] = buf[2][:]
@@ -312,7 +362,7 @@ func TestEarn(t *testing.T) {
 }
 
 func TestClaim(t *testing.T) {
-	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
+	algodClient, err := InitAlgodClient(sandboxAddress, sandboxToken, "local")
 	if err != nil {
 		t.Errorf("algodClient found error, %s", err)
 	}
@@ -324,9 +374,9 @@ func TestClaim(t *testing.T) {
 
 	acct := accts[0]
 
-	amt := uint64(100000000)
+	amt := uint64(10000000)
 
-	err = Claim(algodClient, acct, 55, amt, 1, 56, "./abi/jina.json")
+	err = Claim(algodClient, acct, mng, amt, usdc, jusd, "./abi/jina.json")
 	if err != nil {
 		t.Errorf("test found error, %s", err)
 	}
@@ -334,7 +384,7 @@ func TestClaim(t *testing.T) {
 }
 
 func TestBorrow(t *testing.T) {
-	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
+	algodClient, err := InitAlgodClient(sandboxAddress, sandboxToken, "local")
 	if err != nil {
 		t.Errorf("algodClient found error, %s", err)
 	}
@@ -346,11 +396,11 @@ func TestBorrow(t *testing.T) {
 
 	acct := accts[2]
 
-	xids := []uint64{86}
+	xids := []uint64{collateral}
 	camt := []uint64{20}
 	lamt := []uint64{10000000}
 
-	err = Borrow(algodClient, acct, accts[0], 1, xids, camt, lamt, "./codec/lender_lsig.codec", "./abi/jina.json")
+	err = Borrow(algodClient, acct, accts[0], usdc, jusd, mng, lqt, xids, camt, lamt, "./codec/lender_lsig.codec", "./abi/jina.json")
 	if err != nil {
 		t.Errorf("test found error, %s", err)
 	}
@@ -358,7 +408,7 @@ func TestBorrow(t *testing.T) {
 }
 
 func TestRepay(t *testing.T) {
-	algodClient, err := InitAlgodClient(AlgodAddressSandbox, AlgodTokenSandbox, "local")
+	algodClient, err := InitAlgodClient(sandboxAddress, sandboxToken, "local")
 	if err != nil {
 		t.Errorf("algodClient found error, %s", err)
 	}
@@ -370,10 +420,10 @@ func TestRepay(t *testing.T) {
 
 	acct := accts[2]
 
-	xids := []uint64{86}
-	ramt := []uint64{1000000}
+	xids := []uint64{collateral}
+	ramt := []uint64{10000000}
 
-	err = Repay(algodClient, acct, 55, 1, xids, ramt, "./abi/jina.json")
+	err = Repay(algodClient, acct, mng, lqt, usdc, xids, ramt, "./abi/jina.json")
 	if err != nil {
 		t.Errorf("test found error, %s", err)
 	}

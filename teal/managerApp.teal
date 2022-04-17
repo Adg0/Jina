@@ -90,16 +90,23 @@ noop:
 	// Handle config
 	// (lqtApp,jinaApp,usdc,jusd)
 	txna ApplicationArgs 0
-	method "config(application,application,asset,asset)void"
+	method "config(application,application,account,account,asset,asset)void"
 	==
 	bnz config
 
-	// Handle manage
-	// (usdc,lqtApproval,lqtClear,jinaApproval,jinaClear)
+	// Handle create_liquidator
+	// (lqtApproval,lqtClear)
 	txna ApplicationArgs 0
-	method "manage(asset,byte[],byte[],byte[],byte[])uint64[]"
+	method "create_liquidator(byte[],byte[])uint64"
 	==
-	bnz manage
+	bnz create_lqt
+
+	// Handle create_child
+	// (usdc,jinaApproval,jinaClear)
+	txna ApplicationArgs 0
+	method "create_child(asset,byte[],byte[],application)uint64[3]"
+	==
+	bnz create_child
 
 	// Handle create
 	// (usdc)
@@ -115,7 +122,7 @@ noop:
 	==
 	bnz update_child_app
 
-	// Handle asset config
+	// Handle asset asset_config
 	// (jina,lqt,xaid)
 	txna ApplicationArgs 0
 	method "asset_config(application,application,asset)void"
@@ -178,9 +185,8 @@ create:
 	app_global_put
 	b creator_only
 
-// Handle manage
-manage:
-	callsub create_lqt
+// Handle create_child
+create_child:
 	callsub create_jina
 	callsub create_jusd
 	callsub create_jna
@@ -190,6 +196,7 @@ manage:
 	log
 	b creator_only
 
+// Handle create_liquidator
 create_lqt:
 	// Create lqt (liquidator contract)
 	itxn_begin
@@ -211,14 +218,14 @@ create_lqt:
 	itxn_field ApplicationArgs
 	global CurrentApplicationID
 	itxn_field Applications
-	txna ApplicationArgs 2 // lqt approval program
+	txna ApplicationArgs 1 // lqt approval program
 	dup
 	len
 	int 2
 	swap
 	substring3
 	itxn_field ApprovalProgram
-	txna ApplicationArgs 3 // lqt clear program
+	txna ApplicationArgs 2 // lqt clear program
 	dup
 	len
 	int 2
@@ -232,7 +239,11 @@ create_lqt:
 	itob
 	store 9
 	app_global_put
-	retsub
+	pushbytes 0x151f7c75
+	load 9
+	concat
+	log
+	b creator_only
 
 create_jina:
 	// Create jina contract
@@ -255,14 +266,14 @@ create_jina:
 	itxn_field ApplicationArgs
 	global CurrentApplicationID
 	itxn_field Applications
-	txna ApplicationArgs 4 // jina approval program
+	txna ApplicationArgs 2 // jina approval program
 	dup
 	len
 	int 2
 	swap
 	substring3
 	itxn_field ApprovalProgram
-	txna ApplicationArgs 5 // jina clear program
+	txna ApplicationArgs 3 // jina clear program
 	dup
 	len
 	int 2
@@ -274,9 +285,6 @@ create_jina:
 	itxn CreatedApplicationID // appID of jina contract
 	dup
 	itob
-	load 9
-	swap
-	concat
 	store 9
 	app_global_put
 	retsub
@@ -498,7 +506,7 @@ config:
 	b creator_only
 
 update_child_app:
-	// Create lqt (liquidator contract)
+	// Update smartcontract
 	itxn_begin
 	int 0
 	itxn_field Fee
@@ -507,7 +515,7 @@ update_child_app:
 	int UpdateApplication	// UpdateApplication
 	itxn_field OnCompletion
 	txn Applications 1
-	itxn_field Applications
+	itxn_field ApplicationID
 	txna ApplicationArgs 2 // approval program
 	dup
 	len

@@ -1,0 +1,95 @@
+{
+    "name": "lqt",
+    "networks": {
+        "default": {
+            "appID": 0
+        }
+    },
+    "methods": [
+        {
+            "name": "create",
+            "desc": "creates lquidator app",
+            "args": [
+                {
+                    "name": "mng",
+                    "type": "application",
+                    "desc": "manager contract application ID"
+                }
+            ],
+            "returns": {
+                "type": "void"
+            }
+        },
+        {
+            "name": "manage",
+            "desc": "optin to jusd and usdc",
+            "args": [
+                {
+                    "name": "mng",
+                    "type": "application"
+                },
+                {
+                    "name": "jusd",
+                    "type": "asset"
+                },
+                {
+                    "name": "usdc",
+                    "type": "asset"
+                }
+            ],
+            "returns": {
+                "type": "void"
+            }
+        },
+        {
+            "name": "liquidate",
+            "desc": "provide USDCa as liquidity to earn payments",
+            "args": [
+                {
+                    "desc": "usdc or jusd transferd to trigger liquidation",
+                    "type": "axfer"
+                },
+                {
+                    "name": "liquidatee",
+                    "type": "account"
+                },
+                {
+                    "name": "receiver",
+                    "type": "account"
+                },
+                {
+                    "name": "xaid",
+                    "type": "asset"
+                }
+            ],
+            "returns": {
+                "type": "void"
+            }
+        },
+        {
+            "name": "send",
+            "desc": "transfer excess asset",
+            "args": [
+                {
+                    "type": "account",
+                    "name": "sender"
+                },
+                {
+                    "name": "receiver",
+                    "type": "account"
+                },
+                {
+                    "type": "asset",
+                    "name": "xaid"
+                },
+                {
+                    "name": "amt",
+                    "type": "uint64"
+                }
+            ],
+            "returns": {
+                "type": "void"
+            }
+        }
+    ]
+}
